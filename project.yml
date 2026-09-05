@@ -1,0 +1,40 @@
+name: iSwiftCode
+options:
+  bundleIdPrefix: com.liaojinxuan
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+    DEVELOPMENT_TEAM: ""
+targets:
+  iSwiftCode:
+    type: application
+    platform: iOS
+    sources:
+      - path: iSwiftCode
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.liaojinxuan.iSwiftCode
+        PRODUCT_NAME: iSwift Code
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: Config/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: false
+    scheme:
+      testTargets:
+        - iSwiftCodeTests
+  iSwiftCodeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: iSwiftCodeTests
+    dependencies:
+      - target: iSwiftCode
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.liaojinxuan.iSwiftCodeTests
+        GENERATE_INFOPLIST_FILE: true
