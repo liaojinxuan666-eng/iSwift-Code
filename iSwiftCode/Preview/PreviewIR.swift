@@ -76,6 +76,22 @@ enum PreviewStateValue: Equatable, Hashable, Sendable {
     case optionalBool(Bool?)
     case optionalNumber(Double?)
 
+    /// Portable custom Identifiable model value.
+    ///
+    /// Source parsing for model declarations is added by a later provider
+    /// layer. Keeping the runtime representation here lets action/state
+    /// plumbing support custom items before source lowering is enabled.
+    case identifiableItem(PreviewIdentifiableItem)
+
+    /// Typed optional custom Identifiable item state.
+    ///
+    /// The item type name is preserved even while nil so `.sheet(item:)` and
+    /// `.fullScreenCover(item:)` can validate assignments without executing
+    /// user model code.
+    case optionalIdentifiableItem(
+        PreviewOptionalIdentifiableItemState
+    )
+
     var displayText: String {
         switch self {
         case .string(let value):
@@ -107,6 +123,15 @@ enum PreviewStateValue: Equatable, Hashable, Sendable {
                 return String(Int(value))
             }
             return String(value)
+
+        case .identifiableItem(let item):
+            return item.id.displayText
+
+        case .optionalIdentifiableItem(let state):
+            guard let item = state.item else {
+                return ""
+            }
+            return item.id.displayText
         }
     }
 
@@ -116,6 +141,9 @@ enum PreviewStateValue: Equatable, Hashable, Sendable {
              .optionalBool(nil),
              .optionalNumber(nil):
             return true
+
+        case .optionalIdentifiableItem(let state):
+            return state.item == nil
 
         default:
             return false

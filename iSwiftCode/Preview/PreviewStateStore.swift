@@ -82,6 +82,12 @@ final class PreviewStateStore: ObservableObject {
             }
             return .number(value)
 
+        case .optionalIdentifiableItem(let state):
+            guard let item = state.item else {
+                return nil
+            }
+            return .identifiableItem(item)
+
         default:
             return nil
         }
@@ -99,6 +105,11 @@ final class PreviewStateStore: ObservableObject {
 
         case .optionalNumber:
             values[name] = .optionalNumber(nil)
+
+        case .optionalIdentifiableItem(let state):
+            values[name] = .optionalIdentifiableItem(
+                state.clearing()
+            )
 
         default:
             return

@@ -159,6 +159,26 @@ enum PreviewActionValidator {
              (.optionalNumber, .number):
             return true
 
+        case (
+            .identifiableItem(let lhsItem),
+            .identifiableItem(let rhsItem)
+        ):
+            return lhsItem.typeName == rhsItem.typeName
+
+        case (
+            .optionalIdentifiableItem(let lhsState),
+            .optionalIdentifiableItem(let rhsState)
+        ):
+            return lhsState.itemTypeName ==
+                rhsState.itemTypeName
+
+        case (
+            .optionalIdentifiableItem(let lhsState),
+            .identifiableItem(let rhsItem)
+        ):
+            return lhsState.itemTypeName ==
+                rhsItem.typeName
+
         default:
             return false
         }
@@ -170,7 +190,8 @@ enum PreviewActionValidator {
         switch value {
         case .optionalString,
              .optionalBool,
-             .optionalNumber:
+             .optionalNumber,
+             .optionalIdentifiableItem:
             return true
 
         default:
@@ -294,6 +315,26 @@ extension PreviewStateStore {
              (.optionalNumber, .number):
             return true
 
+        case (
+            .identifiableItem(let lhsItem),
+            .identifiableItem(let rhsItem)
+        ):
+            return lhsItem.typeName == rhsItem.typeName
+
+        case (
+            .optionalIdentifiableItem(let lhsState),
+            .optionalIdentifiableItem(let rhsState)
+        ):
+            return lhsState.itemTypeName ==
+                rhsState.itemTypeName
+
+        case (
+            .optionalIdentifiableItem(let lhsState),
+            .identifiableItem(let rhsItem)
+        ):
+            return lhsState.itemTypeName ==
+                rhsItem.typeName
+
         default:
             return false
         }
@@ -305,7 +346,8 @@ extension PreviewStateStore {
         switch value {
         case .optionalString,
              .optionalBool,
-             .optionalNumber:
+             .optionalNumber,
+             .optionalIdentifiableItem:
             return true
 
         default:
@@ -336,6 +378,17 @@ extension PreviewStateStore {
         case (.optionalNumber, .number(let newValue)):
             setValue(
                 .optionalNumber(newValue),
+                for: stateName
+            )
+
+        case (
+            .optionalIdentifiableItem(let state),
+            .identifiableItem(let item)
+        ) where state.itemTypeName == item.typeName:
+            setValue(
+                .optionalIdentifiableItem(
+                    state.presenting(item)
+                ),
                 for: stateName
             )
 
