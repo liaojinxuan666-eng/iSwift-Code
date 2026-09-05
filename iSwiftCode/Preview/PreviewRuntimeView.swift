@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Identifiable runtime bridge used when portable optional primitive state
-/// drives SwiftUI's native `.sheet(item:)` overload.
+/// drives SwiftUI's native item-based presentation overloads.
 private struct PreviewPresentedItem: Identifiable {
     let id: String
     let value: PreviewStateValue
@@ -470,7 +470,7 @@ private struct PreviewNodeView: View {
                 )
             },
             set: { item in
-                // SwiftUI writes nil when an item-driven sheet is dismissed.
+                // SwiftUI writes nil when an item-driven presentation is dismissed.
                 // The source item value itself remains owned by PreviewStateStore.
                 if item == nil {
                     stateStore.clearOptionalValue(
@@ -664,6 +664,23 @@ private struct PreviewNodeView: View {
             let reference,
             let content
         ):
+            if isOptionalItemState(
+                reference.stateName
+            ) {
+                return AnyView(
+                    view.fullScreenCover(
+                        item: optionalItemBinding(
+                            for: reference.stateName
+                        )
+                    ) { _ in
+                        PreviewNodeView(
+                            node: content,
+                            stateStore: stateStore
+                        )
+                    }
+                )
+            }
+
             return AnyView(
                 view.fullScreenCover(
                     isPresented: boolBinding(
