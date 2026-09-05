@@ -10,10 +10,43 @@ final class EditorViewModel: ObservableObject {
     @Published private(set) var isRunning = false
 
     private let compiler: any CompilerProvider
+    private let workspace: ProjectWorkspace
+    private let activeFilePath: WorkspacePath
 
     init(compiler: any CompilerProvider = SandboxSwiftCompilerProvider()) {
         self.compiler = compiler
-        source = Self.welcomeProgram
+
+        // These literals are controlled by the application and are validated
+        // once when the default scratch project is constructed.
+        let mainPath = try! WorkspacePath("main.swift")
+        let storage = InMemoryProjectWorkspaceStorage()
+        let descriptor = ProjectDescriptor(
+            identifier: "iswift.scratch",
+            displayName: "Scratch Project",
+            entryFilePath: mainPath
+        )
+        let workspace = try! ProjectWorkspace(
+            descriptor: descriptor,
+            storage: storage
+        )
+
+        self.workspace = workspace
+        self.activeFilePath = mainPath
+        self.source = Self.welcomeProgram
+
+        try? workspace.writeTextFile(Self.welcomeProgram, at: mainPath)
+    }
+
+    /// Dependency-injection initializer used by the future project UI and tests.
+    init(
+        compiler: any CompilerProvider,
+        workspace: ProjectWorkspace,
+        activeFilePath: WorkspacePath
+    ) {
+        self.compiler = compiler
+        self.workspace = workspace
+        self.activeFilePath = activeFilePath
+        self.source = (try? workspace.readTextFile(at: activeFilePath)) ?? ""
     }
 
     func run() {
@@ -21,14 +54,18 @@ final class EditorViewModel: ObservableObject {
         diagnostics = []
         buildSummary = "Compiling locally…"
 
-        let request = CompilerRequest.singleFile(
-            operation: .run,
-            language: .swift,
-            path: "main.swift",
-            source: source
-        )
-
         do {
+            // The editor writes through ProjectWorkspace first. Compiler
+            // providers therefore consume the same project state that plugins
+            // and future AI providers see.
+            try workspace.writeTextFile(source, at: activeFilePath)
+
+            let snapshot = try workspace.snapshot()
+            let request = try ProjectProviderBridge.compilerRequest(
+                from: snapshot,
+                operation: .run
+            )
+
             let result = try compiler.perform(request)
             diagnostics = result.diagnostics
 
@@ -64,6 +101,7 @@ final class EditorViewModel: ObservableObject {
 
     func restoreExample() {
         source = Self.welcomeProgram
+        try? workspace.writeTextFile(Self.welcomeProgram, at: activeFilePath)
         consoleOutput = "Example restored."
         diagnostics = []
         buildSummary = "Ready"
