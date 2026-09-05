@@ -20,75 +20,65 @@ App Preview keeps three separate product paths:
 - `.sheet(item:)` for optional primitive item state
 - `.fullScreenCover(item:)` for optional primitive item state
 - built-in Bool and item presentation demos
+- portable Identifiable item-model IR foundation
+- Identifiable item state/action bridge
+- constrained Identifiable source-model parsing
+- typed optional custom-model `@State` recognition
 
-## Built-in item presentation demo — current batch
+## Current Identifiable source subset
 
-The default SwiftUI Preview project now exercises both item-driven
-presentation overloads with separate optional bindings:
-
-```swift
-@State private var selectedSheetItem: String? = nil
-@State private var selectedFullScreenItem: String? = nil
-```
-
-Sheet item flow:
+The top-level Live Preview provider now recognizes:
 
 ```swift
-Button("Open Item Sheet") {
-    selectedSheetItem = "Sheet Item"
+struct DetailItem: Identifiable {
+    let id: Int
+    let title: String
 }
-.sheet(item: $selectedSheetItem) { item in
-    VStack {
-        Text(item)
 
-        Button("Close Item Sheet") {
-            selectedSheetItem = nil
-        }
-    }
-}
+@State private var selectedItem: DetailItem? = nil
 ```
 
-Full-screen item flow:
+Supported stored member types:
+
+- `String`
+- `Bool`
+- `Int`
+- `Double`
+- `Float`
+
+`id` is required.
+
+The provider does not execute the source model. It rewrites only the custom
+optional state type to a parser-safe placeholder, runs the existing preview
+provider stack, then restores the resulting state as portable
+`PreviewOptionalIdentifiableItemState`.
+
+This also allows `.sheet(item:)` and `.fullScreenCover(item:)` to be
+structurally lowered for custom Identifiable state while the value is nil.
+
+## Still pending
+
+The following source still needs constructor/action lowering:
 
 ```swift
-Button("Open Item Full Screen") {
-    selectedFullScreenItem = "Full Screen Item"
-}
-.fullScreenCover(
-    item: $selectedFullScreenItem
-) { item in
-    VStack {
-        Text(item)
-
-        Button("Close Item Full Screen") {
-            selectedFullScreenItem = nil
-        }
-    }
+Button("Open") {
+    selectedItem = DetailItem(
+        id: 1,
+        title: "Details"
+    )
 }
 ```
 
-Separate bindings are intentional: opening one demo must not activate the other
-presentation modifier.
-
-All built-in template regression tests now parse through the current top-level
-`SwiftUIFullScreenCoverItemPreviewProvider`, so future presentation syntax in
-the template is validated by the same stack used by Live Preview.
-
-## Current item limitation
-
-Item-driven presentation still accepts typed optional primitive state only:
-
-- `String?`
-- `Bool?`
-- `Int?` / `Double?` / `Float?`
+After that, runtime presentation can receive a real portable custom item.
 
 ## Next preview layers
 
-1. richer Identifiable item-model IR
-2. item member access inside presentation content
-3. animation / transitions
-4. richer control styles
-5. iPad side-by-side editor/preview layout
+1. lower constrained model initializer assignment into Identifiable item IR
+2. runtime custom-item presentation bridge
+3. `item.member` access inside presentation content
+4. animation / transitions
+5. richer control styles
+6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
