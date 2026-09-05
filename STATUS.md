@@ -1,79 +1,140 @@
-# iSwift Code 0.1.1 status
+# iSwift Code 0.1.2 status
 
 ## Release state
 
-0.1.1 is the current stable development baseline.
+0.1.2 is the current stable development baseline.
 
-The repository has a green GitHub Actions pipeline that:
-
-- checks out the repository
-- installs XcodeGen
-- generates `iSwiftCode.xcodeproj`
-- selects an available iOS Simulator
-- builds the application target
-- runs the compiler-core XCTest suite
-
-This CI gate is now required before expanding the language surface.
+The 0.1.2 development sequence has passed the repository's GitHub Actions gate:
+XcodeGen project generation, iOS build, and XCTest execution are expected to
+remain green before the next milestone is expanded.
 
 ## Implemented
 
-- SwiftUI editor workspace for iPhone and iPad
-- fully local, sandbox-safe compiler backend
-- lexer with source locations and diagnostics
-- recursive-descent parser and abstract syntax tree
-- bytecode compiler with conditional and unconditional jumps
-- stack virtual machine with a 100,000-instruction safety limit
-- lexical block scopes
+### Sandbox language/runtime
+
+- local lexer/parser/AST pipeline
+- bytecode compiler and virtual machine
+- `let` / `var`
+- assignment
+- scalar literals
+- arithmetic/comparison/equality/Boolean operators
+- `if` / `else`
+- `while`
+- `break` / `continue`
+- lexical scopes
 - variable shadowing
-- `while` loops
-- `break` and `continue`
-- correct scope unwinding when leaving loops
-- console output and inline error list
-- XCTest coverage for:
-  - arithmetic and variables
-  - `if` / `else`
-  - immutable `let` values
-  - syntax locations
-  - comments and strings
-  - `while`
-  - block scope and shadowing
-  - block-local lifetime
-  - `break`
-  - `continue`
-  - nested-scope loop exits
-  - invalid loop-control statements
-- reproducible XcodeGen project
-- GitHub Actions build and test workflow
+- scope unwinding
+- console output
+- source-location diagnostics
+- instruction safety limit
 
-## Current language boundary
+### Provider/plugin foundation
 
-Version 0.1.1 intentionally implements a Swift-compatible executable core
-rather than claiming to bundle Apple's full Swift compiler.
+- generic `PluginManifest`
+- plugin capabilities
+- plugin permissions
+- API compatibility checks
+- plugin lifecycle and registry
+- built-in / Wasm / remote-service execution modes
+- typed `CompilerProvider`
+- typed `AIProvider`
+- reserved `WasmPluginLoader`
+- permission-checked Host Services
+- workspace/network/credential/clipboard/user-file/build-artifact/external-URL
+  host boundaries
+- `SandboxSwiftCompilerProvider` integrated through the provider layer
+- provider discovery through the registry
 
-Not implemented yet:
+### Project foundation
 
-- user-defined functions and `return`
-- arrays and dictionaries
-- optionals
-- structs, classes, enums, and protocols
-- closures
-- string interpolation
-- Foundation APIs
-- SwiftUI compilation
-- Swift Package dependencies
-- multiple-file project compilation
-- native iOS app building and IPA export
+- validated `WorkspacePath`
+- `ProjectDescriptor`
+- `ProjectWorkspaceStorage`
+- in-memory storage
+- directory-backed storage
+- `ProjectWorkspace`
+- immutable project snapshots
+- workspace-to-CompilerProvider bridge
+- workspace-to-AIProvider snapshot bridge
+- plugin workspace backend
+- persistent `ProjectStore`
+- hidden `.iswift/project.json`
+- entry-file mutation and persistence
+- rollback protection for entry-file rename/delete metadata updates
 
-## Next engineering gate
+### Project session/editor
 
-The next compiler milestone should add function declarations, calls, parameters,
-and `return` without breaking the 0.1.1 regression suite.
+- multi-file file list
+- active-file switching
+- per-file text buffers
+- dirty-file tracking
+- save active / save all
+- create / rename / delete files
+- set/rename/delete entry file
+- compiler run from a workspace snapshot including unsaved buffers
+- persistent scratch project
 
-In parallel, the editor architecture can begin moving toward a project-aware
-workspace so later SwiftUI projects, resources, package metadata, and extension
-capabilities do not have to be retrofitted onto a single-file editor.
+### Multiple projects
 
-The native IPA pipeline remains a separate backend. Instant Run stays inside
-the sandbox VM; native SwiftUI projects will later be compiled, signed, and
-exported as installable IPA files instead of being injected into the editor
-process.
+- Projects screen at app launch
+- list persistent projects
+- open projects
+- create projects
+- delete projects
+- project templates
+- Swift Console template
+- Empty Project template
+- unique project identifiers for duplicate display names
+
+## Architecture constraints locked in 0.1.2
+
+- project core remains provider-agnostic
+- plugin core remains toolchain-agnostic
+- Clang, Codex-like services, and Sandbox Swift are implementations, not core
+  special cases
+- plugins do not receive unrestricted app internals
+- plugin Host Services enforce declared permissions
+- normal non-jailbroken iOS remains the primary compatibility baseline
+- arbitrary downloaded native dylibs are not the stock-iOS plugin model
+
+## Current limitations
+
+Still not implemented:
+
+- full Apple Swift language/compiler
+- sandbox-language functions / `return`
+- arrays/dictionaries/optionals
+- SwiftUI source compilation
+- multi-file execution in the current Sandbox Swift provider
+- production Clang/LLVM provider
+- production AI provider
+- Wasm execution runtime
+- plugin install/management UI
+- App Preview
+- native build/sign/IPA export
+
+## Next engineering gate: 0.1.3 App Preview
+
+`APP_PREVIEW_ROADMAP.md` is locked.
+
+The preview architecture will add:
+
+`ProjectWorkspace -> PreviewProvider -> Preview IR -> Preview Runtime`
+
+The first structural Preview surface targets:
+
+- Text
+- Button
+- Image
+- VStack / HStack / ZStack
+- Spacer
+- ScrollView
+- List
+- NavigationStack
+- basic style modifiers
+
+State, bindings, controls, navigation, sheets, and animation follow after the
+structural renderer is stable.
+
+App Preview must remain separate from native IPA building and must not require a
+new IPA build/sign/install for each source edit.
