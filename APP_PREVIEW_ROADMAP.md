@@ -24,10 +24,13 @@ App Preview keeps three separate product paths:
 - Identifiable item state/action bridge
 - constrained Identifiable source-model parsing
 - typed optional custom-model `@State` recognition
+- constrained Identifiable model-constructor action lowering
+- runtime custom Identifiable item presentation bridge
 
-## Current Identifiable source subset
+## Current custom item flow
 
-The top-level Live Preview provider now recognizes:
+The top-level Live Preview stack now supports the first complete portable custom
+item presentation path:
 
 ```swift
 struct DetailItem: Identifiable {
@@ -36,9 +39,37 @@ struct DetailItem: Identifiable {
 }
 
 @State private var selectedItem: DetailItem? = nil
+
+Button("Open") {
+    selectedItem = DetailItem(
+        id: 1,
+        title: "Details"
+    )
+}
+.sheet(item: $selectedItem) { item in
+    Text(item)
+}
 ```
 
-Supported stored member types:
+Lowering path:
+
+```text
+DetailItem(id:title:)
+        ↓
+PreviewIdentifiableItem
+        ↓
+PreviewAction.set
+        ↓
+PreviewOptionalIdentifiableItemState
+        ↓
+native item-driven Sheet / Full Screen
+```
+
+The source model and constructor are never executed.
+
+## Constructor subset
+
+Supported stored member literal types:
 
 - `String`
 - `Bool`
@@ -46,36 +77,28 @@ Supported stored member types:
 - `Double`
 - `Float`
 
-`id` is required.
+Every declared supported member must be supplied by the constrained constructor.
+Unknown members, duplicate members, missing members, wrong literal types, and
+assigning the wrong model type to a custom optional state produce diagnostics.
 
-The provider does not execute the source model. It rewrites only the custom
-optional state type to a parser-safe placeholder, runs the existing preview
-provider stack, then restores the resulting state as portable
-`PreviewOptionalIdentifiableItemState`.
+Existing primitive Button actions and primitive item presentation continue
+through the established provider path.
 
-This also allows `.sheet(item:)` and `.fullScreenCover(item:)` to be
-structurally lowered for custom Identifiable state while the value is nil.
+## Runtime identity
 
-## Still pending
+Custom Identifiable presentation identity now derives from:
 
-The following source still needs constructor/action lowering:
-
-```swift
-Button("Open") {
-    selectedItem = DetailItem(
-        id: 1,
-        title: "Details"
-    )
-}
+```text
+state name + model type + portable item id
 ```
 
-After that, runtime presentation can receive a real portable custom item.
+Primitive item identity behavior is unchanged.
 
 ## Next preview layers
 
-1. lower constrained model initializer assignment into Identifiable item IR
-2. runtime custom-item presentation bridge
-3. `item.member` access inside presentation content
+1. `item.member` access inside presentation content
+2. member interpolation such as `Text("\(item.title)")`
+3. richer custom-item demo coverage
 4. animation / transitions
 5. richer control styles
 6. iPad side-by-side editor/preview layout
@@ -83,5 +106,5 @@ After that, runtime presentation can receive a real portable custom item.
 ## Architecture constraint
 
 Item presentation remains provider-driven and portable. The generic project,
-workspace, and plugin core never executes arbitrary presentation closures or
-depends on user-supplied SwiftUI runtime code.
+workspace, and plugin core never executes arbitrary presentation closures,
+model constructors, or user-supplied SwiftUI runtime code.

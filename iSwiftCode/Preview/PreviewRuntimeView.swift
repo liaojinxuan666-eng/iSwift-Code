@@ -465,7 +465,10 @@ private struct PreviewNodeView: View {
                 }
 
                 return PreviewPresentedItem(
-                    id: stateName,
+                    id: presentedItemID(
+                        stateName: stateName,
+                        value: value
+                    ),
                     value: value
                 )
             },
@@ -489,11 +492,30 @@ private struct PreviewNodeView: View {
         ) {
         case .optionalString,
              .optionalBool,
-             .optionalNumber:
+             .optionalNumber,
+             .optionalIdentifiableItem:
             return true
 
         default:
             return false
+        }
+    }
+
+    private func presentedItemID(
+        stateName: String,
+        value: PreviewStateValue
+    ) -> String {
+        switch value {
+        case .identifiableItem(let item):
+            return stateName +
+                ":" +
+                item.typeName +
+                ":" +
+                item.id.displayText
+
+        default:
+            // Preserve the established primitive-item identity behavior.
+            return stateName
         }
     }
 
