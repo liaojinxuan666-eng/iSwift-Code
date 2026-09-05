@@ -18,11 +18,17 @@ enum PreviewAction: Equatable, Sendable {
         stateName: String
     )
 
+    /// Clears a typed optional preview state to nil.
+    case clear(
+        stateName: String
+    )
+
     var stateName: String {
         switch self {
         case .set(let stateName, _),
              .add(let stateName, _),
-             .toggle(let stateName):
+             .toggle(let stateName),
+             .clear(let stateName):
             return stateName
         }
     }
@@ -122,6 +128,17 @@ enum PreviewActionValidator {
                                 "toggle"
                         )
                 }
+
+            case .clear:
+                guard isOptionalValue(current) else {
+                    throw PreviewActionValidationError
+                        .incompatibleAction(
+                            stateName:
+                                action.stateName,
+                            actionDescription:
+                                "clear"
+                        )
+                }
             }
         }
     }
@@ -133,7 +150,27 @@ enum PreviewActionValidator {
         switch (lhs, rhs) {
         case (.string, .string),
              (.bool, .bool),
-             (.number, .number):
+             (.number, .number),
+             (.optionalString, .optionalString),
+             (.optionalBool, .optionalBool),
+             (.optionalNumber, .optionalNumber),
+             (.optionalString, .string),
+             (.optionalBool, .bool),
+             (.optionalNumber, .number):
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    private static func isOptionalValue(
+        _ value: PreviewStateValue
+    ) -> Bool {
+        switch value {
+        case .optionalString,
+             .optionalBool,
+             .optionalNumber:
             return true
 
         default:
@@ -161,7 +198,7 @@ extension PreviewStateStore {
                 let stateName,
                 let value
             ):
-                setValue(
+                setPreviewValue(
                     value,
                     for: stateName
                 )
@@ -188,6 +225,11 @@ extension PreviewStateStore {
 
                 setValue(
                     .bool(!value),
+                    for: stateName
+                )
+
+            case .clear(let stateName):
+                clearOptionalValue(
                     for: stateName
                 )
             }
@@ -223,6 +265,13 @@ extension PreviewStateStore {
                 guard case .bool = current else {
                     return false
                 }
+
+            case .clear:
+                guard Self.isOptionalPreviewValue(
+                    current
+                ) else {
+                    return false
+                }
             }
         }
 
@@ -236,11 +285,65 @@ extension PreviewStateStore {
         switch (lhs, rhs) {
         case (.string, .string),
              (.bool, .bool),
-             (.number, .number):
+             (.number, .number),
+             (.optionalString, .optionalString),
+             (.optionalBool, .optionalBool),
+             (.optionalNumber, .optionalNumber),
+             (.optionalString, .string),
+             (.optionalBool, .bool),
+             (.optionalNumber, .number):
             return true
 
         default:
             return false
+        }
+    }
+
+    private static func isOptionalPreviewValue(
+        _ value: PreviewStateValue
+    ) -> Bool {
+        switch value {
+        case .optionalString,
+             .optionalBool,
+             .optionalNumber:
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    private func setPreviewValue(
+        _ value: PreviewStateValue,
+        for stateName: String
+    ) {
+        switch (
+            self.value(for: stateName),
+            value
+        ) {
+        case (.optionalString, .string(let newValue)):
+            setValue(
+                .optionalString(newValue),
+                for: stateName
+            )
+
+        case (.optionalBool, .bool(let newValue)):
+            setValue(
+                .optionalBool(newValue),
+                for: stateName
+            )
+
+        case (.optionalNumber, .number(let newValue)):
+            setValue(
+                .optionalNumber(newValue),
+                for: stateName
+            )
+
+        default:
+            setValue(
+                value,
+                for: stateName
+            )
         }
     }
 }

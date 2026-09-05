@@ -476,6 +476,15 @@ private struct PreviewButtonActionSourceRewriter {
                 continue
             }
 
+            if let stateName = parseClear(statement) {
+                actions.append(
+                    .clear(
+                        stateName: stateName
+                    )
+                )
+                continue
+            }
+
             if let parsed = parseSet(statement) {
                 actions.append(
                     .set(
@@ -562,6 +571,28 @@ private struct PreviewButtonActionSourceRewriter {
         }
 
         return String(statement[range])
+    }
+
+    private func parseClear(
+        _ statement: String
+    ) -> String? {
+        let pattern =
+            #"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*nil\s*$"#
+
+        guard let match = firstMatch(
+            pattern: pattern,
+            in: statement
+        ),
+        let nameRange = Range(
+            match.range(at: 1),
+            in: statement
+        ) else {
+            return nil
+        }
+
+        return String(
+            statement[nameRange]
+        )
     }
 
     private func parseSet(

@@ -66,6 +66,16 @@ enum PreviewStateValue: Equatable, Hashable, Sendable {
     case bool(Bool)
     case number(Double)
 
+    /// Optional primitive preview state.
+    ///
+    /// These cases preserve the wrapped value kind even when the current value
+    /// is nil. That is required by item-driven presentation such as
+    /// `.sheet(item:)`, where nil means "not presented" and a wrapped value
+    /// means "present this item".
+    case optionalString(String?)
+    case optionalBool(Bool?)
+    case optionalNumber(Double?)
+
     var displayText: String {
         switch self {
         case .string(let value):
@@ -79,6 +89,36 @@ enum PreviewStateValue: Equatable, Hashable, Sendable {
                 return String(Int(value))
             }
             return String(value)
+
+        case .optionalString(let value):
+            return value ?? ""
+
+        case .optionalBool(let value):
+            guard let value else {
+                return ""
+            }
+            return value ? "true" : "false"
+
+        case .optionalNumber(let value):
+            guard let value else {
+                return ""
+            }
+            if value.rounded() == value {
+                return String(Int(value))
+            }
+            return String(value)
+        }
+    }
+
+    var isNilOptional: Bool {
+        switch self {
+        case .optionalString(nil),
+             .optionalBool(nil),
+             .optionalNumber(nil):
+            return true
+
+        default:
+            return false
         }
     }
 }

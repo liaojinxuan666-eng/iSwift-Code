@@ -74,13 +74,51 @@ The built-in SwiftUI Preview template now exercises this path directly. Closing
 the default Full Screen demo changes the shared `status` state to
 `"Full Screen Closed"`.
 
+## Optional item-state foundation — current batch
+
+Before `.sheet(item:)` can be lowered safely, App Preview needs a typed optional
+state model that preserves the wrapped primitive kind while the current value
+is nil.
+
+This batch adds portable optional primitive state:
+
+```swift
+@State private var selectedItem: String? = nil
+@State private var selectedFlag: Bool? = nil
+@State private var selectedNumber: Int? = nil
+```
+
+Portable state values:
+
+```text
+optionalString(String?)
+optionalBool(Bool?)
+optionalNumber(Double?)
+```
+
+The constrained action layer also gains a portable `clear` action so source
+such as:
+
+```swift
+selectedItem = "Details"
+selectedItem = nil
+```
+
+can safely open and dismiss a future item-driven presentation without executing
+arbitrary Swift.
+
+For this first foundation pass, typed optional primitive state is recognized
+when its initializer is `nil`. Non-primitive item models remain a later
+extension.
+
 ## Next preview layers
 
-1. `.sheet(item:)`
+1. `.sheet(item:)` for optional primitive item state
 2. `.fullScreenCover(item:)`
-3. animation / transitions
-4. richer control styles
-5. iPad side-by-side editor/preview layout
+3. richer item-model IR
+4. animation / transitions
+5. richer control styles
+6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 

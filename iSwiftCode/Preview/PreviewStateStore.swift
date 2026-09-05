@@ -56,6 +56,55 @@ final class PreviewStateStore: ObservableObject {
         return value
     }
 
+    /// Returns the wrapped value for optional primitive preview state.
+    ///
+    /// Non-optional state returns nil so presentation providers can distinguish
+    /// an optional item binding from ordinary state.
+    func optionalItemValue(
+        for name: String
+    ) -> PreviewStateValue? {
+        switch values[name] {
+        case .optionalString(let value):
+            guard let value else {
+                return nil
+            }
+            return .string(value)
+
+        case .optionalBool(let value):
+            guard let value else {
+                return nil
+            }
+            return .bool(value)
+
+        case .optionalNumber(let value):
+            guard let value else {
+                return nil
+            }
+            return .number(value)
+
+        default:
+            return nil
+        }
+    }
+
+    func clearOptionalValue(
+        for name: String
+    ) {
+        switch values[name] {
+        case .optionalString:
+            values[name] = .optionalString(nil)
+
+        case .optionalBool:
+            values[name] = .optionalBool(nil)
+
+        case .optionalNumber:
+            values[name] = .optionalNumber(nil)
+
+        default:
+            return
+        }
+    }
+
     func displayText(for name: String) -> String {
         values[name]?.displayText ?? ""
     }

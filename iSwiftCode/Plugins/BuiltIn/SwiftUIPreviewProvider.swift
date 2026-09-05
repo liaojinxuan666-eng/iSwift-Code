@@ -366,6 +366,7 @@ private struct SwiftUIPreviewSourceParser {
                 }
 
                 cursor += 2
+                let declarationStart = cursor
 
                 while cursor < tokens.count,
                       tokens[cursor] != .equal {
@@ -374,7 +375,13 @@ private struct SwiftUIPreviewSourceParser {
 
                 guard cursor + 1 < tokens.count,
                       let value = stateValue(
-                          from: tokens[cursor + 1]
+                          from: tokens[cursor + 1],
+                          declarationTokens:
+                            Array(
+                                tokens[
+                                    declarationStart..<cursor
+                                ]
+                            )
                       ) else {
                     index += 2
                     continue
@@ -400,7 +407,9 @@ private struct SwiftUIPreviewSourceParser {
         }
 
         private func stateValue(
-            from token: SwiftUIPreviewToken
+            from token: SwiftUIPreviewToken,
+            declarationTokens:
+                [SwiftUIPreviewToken]
         ) -> PreviewStateValue? {
             switch token {
             case .string(let value):
@@ -415,9 +424,54 @@ private struct SwiftUIPreviewSourceParser {
             case .identifier("false"):
                 return .bool(false)
 
+            case .identifier("nil"):
+                return optionalNilValue(
+                    declarationTokens
+                )
+
             default:
                 return nil
             }
+        }
+
+        /// The lexer intentionally ignores punctuation it does not need for
+        /// structural SwiftUI parsing. For a nil initializer, the primitive
+        /// type name before `=` is enough to preserve the optional value kind.
+        ///
+        /// First item-presentation support deliberately accepts typed optional
+        /// primitives initialized to nil:
+        ///
+        /// `String?`, `Bool?`, `Int?`, `Double?`, or `Float?`.
+        private func optionalNilValue(
+            _ declarationTokens:
+                [SwiftUIPreviewToken]
+        ) -> PreviewStateValue? {
+            let typeNames = declarationTokens
+                .compactMap {
+                    token -> String? in
+                    guard case .identifier(
+                        let name
+                    ) = token else {
+                        return nil
+                    }
+                    return name
+                }
+
+            if typeNames.contains("String") {
+                return .optionalString(nil)
+            }
+
+            if typeNames.contains("Bool") {
+                return .optionalBool(nil)
+            }
+
+            if typeNames.contains("Int") ||
+                typeNames.contains("Double") ||
+                typeNames.contains("Float") {
+                return .optionalNumber(nil)
+            }
+
+            return nil
         }
     }
 
