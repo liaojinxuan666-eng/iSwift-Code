@@ -146,8 +146,16 @@ enum BuiltInProjectTemplates {
                                     .font(.headline)
 
                                 HStack(spacing: 12) {
-                                    Button("Run") { }
+                                    Button("Add") {
+                                        count += 1
+                                    }
+
+                                    Button("Toggle") {
+                                        enabled.toggle()
+                                    }
+
                                     Spacer()
+
                                     Text("0.1.3")
                                         .font(.caption)
                                 }

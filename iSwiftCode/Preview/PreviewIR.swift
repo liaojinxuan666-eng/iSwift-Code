@@ -164,6 +164,10 @@ indirect enum PreviewNode: Equatable, Sendable {
     )
 
     case button(title: String)
+    case actionButton(
+        title: String,
+        program: PreviewActionProgram
+    )
     case image(systemName: String)
     case spacer
     case vStack(children: [PreviewNode])

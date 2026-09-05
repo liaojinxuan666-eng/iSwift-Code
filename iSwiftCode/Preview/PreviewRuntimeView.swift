@@ -122,6 +122,17 @@ private struct PreviewNodeView: View {
                     .buttonStyle(.borderedProminent)
             )
 
+        case .actionButton(
+            let title,
+            let program
+        ):
+            return AnyView(
+                Button(title) {
+                    _ = stateStore.perform(program)
+                }
+                .buttonStyle(.borderedProminent)
+            )
+
         case .image(let systemName):
             return AnyView(
                 Image(systemName: systemName)

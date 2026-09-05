@@ -6,39 +6,35 @@ App Preview keeps three separate product paths:
 
 `Run Code | Preview App | Build IPA`
 
-## Completed before this batch
+## Completed
 
-- generic PreviewProvider and Preview IR
+- generic PreviewProvider and portable Preview IR
 - signed Native SwiftUI Preview Runtime
 - modifier and stack-layout IR
 - inline Live Preview with debounced refresh
-- portable primitive `@State` definitions
+- primitive `@State` model
 - state-backed and interpolated Text
-- binding-backed `TextField` and `Toggle`
-- `Picker` and selection bindings
+- Binding-backed TextField and Toggle
+- Picker + selection bindings
+- constrained PreviewAction IR
 
-## Button actions — current batch
+## Actionable Button runtime — current batch
 
-App Preview now has the foundation for a constrained `PreviewAction` IR.
+App Preview now lowers a deliberately small Swift Button mutation subset into
+`PreviewActionProgram` and executes it through `PreviewStateStore`.
 
-The action layer deliberately does **not** execute arbitrary Swift closures.
-Providers will lower a small, portable set of state mutations into:
+Supported source forms:
 
-- `set(stateName:value:)`
-- `add(stateName:amount:)`
-- `toggle(stateName:)`
+```swift
+count += 1
+count -= 1
+enabled.toggle()
+status = "Done"
+enabled = true
+count = 10
+```
 
-Multiple mutations are carried by a `PreviewActionProgram`.
-
-`PreviewActionValidator` checks every target against the preview's existing
-`@State` definitions before execution. Unknown states and incompatible action
-types are rejected instead of silently creating or coercing state.
-
-`PreviewStateStore.perform(_:)` performs a complete compatibility preflight
-before applying the program, so an invalid program cannot partially mutate
-preview state.
-
-The next Button batch will connect source such as:
+Example:
 
 ```swift
 @State private var count = 0
@@ -53,24 +49,43 @@ Button("Toggle") {
 }
 ```
 
-to this action IR and then wire the signed Preview Runtime button tap to
-`PreviewStateStore`.
+Pipeline:
+
+```text
+Swift Button closure
+        ↓
+Button Action Source Rewriter
+        ↓
+PreviewActionProgram
+        ↓
+PreviewActionValidator
+        ↓
+PreviewNode.actionButton
+        ↓
+Signed Preview Runtime
+        ↓
+PreviewStateStore.perform(...)
+        ↓
+State-backed UI updates immediately
+```
+
+Arbitrary Swift closures are never executed by App Preview. Unsupported
+statements produce a diagnostic. Unknown state names and incompatible mutation
+types are rejected before the program can mutate runtime state.
+
+Legacy empty Buttons continue to preview as non-actionable buttons, preserving
+existing behavior and tests.
 
 ## Next preview layers
 
-1. Button source lowering + runtime action execution
-2. navigation destinations and sheets
-3. animation/transitions
-4. richer TextField/Toggle/Picker styles
+1. navigation destinations + NavigationLink
+2. sheets / presentation state
+3. animation and transitions
+4. richer control styles
 5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Native SwiftUI `Binding` and executable UI behavior remain inside the signed
-runtime. ProjectStore, ProjectWorkspace, ProjectSession, Live Preview
-scheduling, and the generic plugin/provider layer remain independent from
-SwiftUI-specific state machinery.
-
-Button source closures are never executed directly by App Preview. Only
-validated, explicitly supported `PreviewAction` operations may reach the
-runtime state store.
+Button execution remains constrained to portable PreviewAction operations.
+ProjectStore, ProjectWorkspace, ProjectSession, Live Preview scheduling, and the
+generic plugin core never execute arbitrary source code or Swift closures.
