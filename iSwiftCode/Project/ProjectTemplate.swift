@@ -117,6 +117,7 @@ enum BuiltInProjectTemplates {
                     @State private var name = "iSwift Code"
                     @State private var enabled = true
                     @State private var showingInfo = false
+                    @State private var showingFullScreen = false
 
                     var body: some View {
                         NavigationStack {
@@ -181,6 +182,27 @@ enum BuiltInProjectTemplates {
 
                                         Button("Close") {
                                             showingInfo = false
+                                        }
+                                    }
+                                    .padding(20)
+                                }
+
+                                Button("Open Full Screen") {
+                                    showingFullScreen = true
+                                }
+                                .fullScreenCover(isPresented: $showingFullScreen) {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Full Screen Preview")
+                                            .font(.title2)
+
+                                        Text("Hello, \\(name)")
+                                            .font(.headline)
+
+                                        Text("Count: \\(count)")
+                                            .foregroundStyle(.secondary)
+
+                                        Button("Close Full Screen") {
+                                            showingFullScreen = false
                                         }
                                     }
                                     .padding(20)

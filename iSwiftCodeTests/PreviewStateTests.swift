@@ -233,7 +233,8 @@ final class PreviewStateTests: XCTestCase {
                 "count",
                 "name",
                 "enabled",
-                "showingInfo"
+                "showingInfo",
+                "showingFullScreen"
             ]
         )
     }

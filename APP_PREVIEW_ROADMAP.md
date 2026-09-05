@@ -83,14 +83,46 @@ This first pass supports exactly:
 `onDismiss:` for fullScreenCover and item-based presentation remain later
 presentation passes.
 
+## Built-in full-screen demo — current batch
+
+The built-in SwiftUI Preview template now demonstrates full-screen
+presentation alongside the existing Sheet and Navigation examples:
+
+```swift
+@State private var showingFullScreen = false
+
+Button("Open Full Screen") {
+    showingFullScreen = true
+}
+.fullScreenCover(
+    isPresented: $showingFullScreen
+) {
+    VStack {
+        Text("Full Screen Preview")
+
+        Button("Close Full Screen") {
+            showingFullScreen = false
+        }
+    }
+}
+```
+
+The full-screen page reads the same `name` and `count` preview state. This keeps
+all built-in presentation examples on one PreviewStateStore and gives a new
+project an immediate interactive test path for Sheet, NavigationLink, and
+fullScreenCover.
+
+The older state regression test is updated in the same batch to include
+`showingFullScreen`, preventing the same stale expected-state failure that
+occurred when the Sheet demo was added.
+
 ## Next preview layers
 
-1. default template full-screen demo
-2. `.fullScreenCover(... onDismiss:)`
-3. `.sheet(item:)`
-4. animation / transitions
-5. richer control styles
-6. iPad side-by-side editor/preview layout
+1. `.fullScreenCover(... onDismiss:)`
+2. `.sheet(item:)`
+3. animation / transitions
+4. richer control styles
+5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
