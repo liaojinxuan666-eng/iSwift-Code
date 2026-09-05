@@ -65,7 +65,7 @@ enum BuiltInProjectTemplates {
     static let swiftUIPreview = ProjectTemplate(
         id: "swiftui-preview",
         displayName: "SwiftUI Preview",
-        summary: "A SwiftUI-style project for the signed App Preview runtime.",
+        summary: "A styled SwiftUI project for the signed App Preview runtime.",
         entryFilePath: try! WorkspacePath("ContentView.swift"),
         initialTextFiles: [
             try! WorkspacePath("ContentView.swift"): """
@@ -76,14 +76,29 @@ enum BuiltInProjectTemplates {
                     NavigationStack {
                         VStack {
                             Image(systemName: "swift")
+                                .foregroundStyle(.orange)
+                                .font(.largeTitle)
+
                             Text("{{PROJECT_NAME}}")
+                                .font(.title)
+                                .foregroundStyle(.primary)
+
                             Text("Live App Preview")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
                             HStack {
                                 Button("Run") { }
                                 Spacer()
                                 Text("0.1.3")
+                                    .font(.caption)
                             }
+                            .padding(12)
+                            .frame(maxWidth: .infinity)
+                            .background(.blue)
+                            .cornerRadius(14)
                         }
+                        .padding(20)
                     }
                 }
             }
