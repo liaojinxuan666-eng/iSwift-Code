@@ -33,7 +33,7 @@ final class PreviewFullScreenCoverTemplateTests: XCTestCase {
     private func preview(
         _ source: String
     ) throws -> PreviewProviderResult {
-        try SwiftUIFullScreenCoverPreviewProvider()
+        try SwiftUIFullScreenCoverOnDismissPreviewProvider()
             .makePreview(
                 PreviewRequest(
                     files: [
@@ -63,7 +63,17 @@ final class PreviewFullScreenCoverTemplateTests: XCTestCase {
         )
         XCTAssertTrue(
             source.contains(
-                ".fullScreenCover(isPresented: $showingFullScreen)"
+                "isPresented: $showingFullScreen"
+            )
+        )
+        XCTAssertTrue(
+            source.contains(
+                "onDismiss: {"
+            )
+        )
+        XCTAssertTrue(
+            source.contains(
+                "status = \"Full Screen Closed\""
             )
         )
         XCTAssertTrue(
@@ -144,33 +154,33 @@ final class PreviewFullScreenCoverTemplateTests: XCTestCase {
         XCTAssertTrue(result.succeeded)
     }
 
-    func testFullScreenDemoLowersToPortableModifier() throws {
+    func testFullScreenDemoLowersToOnDismissPortableModifier() throws {
         let source = try templateSource()
         let result = try preview(source)
 
         XCTAssertTrue(result.succeeded)
 
-        func containsFullScreenCover(
-            _ node: PreviewNode
-        ) -> Bool {
+        func fullScreenProgram(
+            in node: PreviewNode
+        ) -> PreviewActionProgram? {
             switch node {
             case .modified(
                 let base,
                 let modifiers
             ):
-                if modifiers.contains(
-                    where: { modifier in
-                        if case .fullScreenCover = modifier {
-                            return true
-                        }
-
-                        return false
+                for modifier in modifiers {
+                    if case .fullScreenCoverWithOnDismiss(
+                        _,
+                        let program,
+                        _
+                    ) = modifier {
+                        return program
                     }
-                ) {
-                    return true
                 }
 
-                return containsFullScreenCover(base)
+                return fullScreenProgram(
+                    in: base
+                )
 
             case .vStack(let children),
                  .hStack(let children),
@@ -178,28 +188,48 @@ final class PreviewFullScreenCoverTemplateTests: XCTestCase {
                  .scrollView(let children),
                  .list(let children),
                  .navigationStack(let children):
-                return children.contains(
-                    where: containsFullScreenCover
-                )
+                for child in children {
+                    if let program =
+                        fullScreenProgram(in: child) {
+                        return program
+                    }
+                }
+
+                return nil
 
             case .navigationLink(
                 _,
                 let destination
             ):
-                return containsFullScreenCover(
-                    destination
+                return fullScreenProgram(
+                    in: destination
                 )
 
             default:
-                return false
+                return nil
             }
         }
 
         let root = try XCTUnwrap(
             result.document?.root
         )
-        XCTAssertTrue(
-            containsFullScreenCover(root)
+        let program = try XCTUnwrap(
+            fullScreenProgram(in: root)
+        )
+
+        XCTAssertEqual(
+            program,
+            PreviewActionProgram(
+                actions: [
+                    .set(
+                        stateName: "status",
+                        value:
+                            .string(
+                                "Full Screen Closed"
+                            )
+                    )
+                ]
+            )
         )
     }
 }

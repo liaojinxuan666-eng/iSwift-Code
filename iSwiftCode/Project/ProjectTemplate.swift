@@ -190,7 +190,12 @@ enum BuiltInProjectTemplates {
                                 Button("Open Full Screen") {
                                     showingFullScreen = true
                                 }
-                                .fullScreenCover(isPresented: $showingFullScreen) {
+                                .fullScreenCover(
+                                    isPresented: $showingFullScreen,
+                                    onDismiss: {
+                                        status = "Full Screen Closed"
+                                    }
+                                ) {
                                     VStack(alignment: .leading, spacing: 12) {
                                         Text("Full Screen Preview")
                                             .font(.title2)

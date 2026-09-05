@@ -6,7 +6,7 @@ App Preview keeps three separate product paths:
 
 `Run Code | Preview App | Build IPA`
 
-## Completed before this batch
+## Completed
 
 - portable Preview IR and signed native runtime
 - Live Preview
@@ -18,115 +18,72 @@ App Preview keeps three separate product paths:
 - navigationTitle
 - `.sheet(isPresented:)`
 - constrained `.sheet(... onDismiss:)`
-- built-in multi-page + sheet demo
+- `.fullScreenCover(isPresented:)`
+- constrained `.fullScreenCover(... onDismiss:)`
+- built-in Sheet / Full Screen / Navigation demo
 
-## Full-screen presentation — current batch
+## Full-screen onDismiss — completed
 
-App Preview now lowers:
-
-```swift
-@State private var showingCover = false
-
-Button("Open") {
-    showingCover = true
-}
-.fullScreenCover(isPresented: $showingCover) {
-    VStack {
-        Text("Full Screen")
-
-        Button("Close") {
-            showingCover = false
-        }
-    }
-}
-```
-
-into portable presentation IR:
-
-```text
-PreviewModifier.fullScreenCover
-├─ isPresented: PreviewBindingReference
-└─ content: PreviewNode
-```
-
-Pipeline:
-
-```text
-.fullScreenCover source
-        ↓
-SwiftUIFullScreenCoverPreviewProvider
-        ↓
-validate Bool @State
-        ↓
-portable PreviewModifier.fullScreenCover
-        ↓
-signed Preview Runtime
-        ↓
-native SwiftUI fullScreenCover
-```
-
-Full-screen content is parsed through the same safe provider stack and shares
-`PreviewStateStore`. It can contain current controls, actions, navigation,
-sheets, and another supported full-screen cover.
-
-Unknown state references and non-Bool bindings produce diagnostics before the
-runtime receives IR.
-
-## Current limitation
-
-This first pass supports exactly:
-
-```swift
-.fullScreenCover(isPresented: $state) { ... }
-```
-
-`onDismiss:` for fullScreenCover and item-based presentation remain later
-presentation passes.
-
-## Built-in full-screen demo — current batch
-
-The built-in SwiftUI Preview template now demonstrates full-screen
-presentation alongside the existing Sheet and Navigation examples:
+App Preview supports the safe form:
 
 ```swift
 @State private var showingFullScreen = false
+@State private var status = "Ready"
 
 Button("Open Full Screen") {
     showingFullScreen = true
 }
 .fullScreenCover(
-    isPresented: $showingFullScreen
+    isPresented: $showingFullScreen,
+    onDismiss: {
+        status = "Full Screen Closed"
+    }
 ) {
-    VStack {
-        Text("Full Screen Preview")
-
-        Button("Close Full Screen") {
-            showingFullScreen = false
-        }
+    Button("Close Full Screen") {
+        showingFullScreen = false
     }
 }
 ```
 
-The full-screen page reads the same `name` and `count` preview state. This keeps
-all built-in presentation examples on one PreviewStateStore and gives a new
-project an immediate interactive test path for Sheet, NavigationLink, and
-fullScreenCover.
+The source dismissal closure is not executed as arbitrary Swift. It is lowered
+to `PreviewActionProgram`, validated against preview-state definitions, then the
+signed runtime applies the portable actions after native full-screen dismissal.
 
-The older state regression test is updated in the same batch to include
-`showingFullScreen`, preventing the same stale expected-state failure that
-occurred when the Sheet demo was added.
+Supported dismissal mutations currently include:
+
+```text
+state = literal
+number += literal
+number -= literal
+bool.toggle()
+```
+
+Unknown state references, incompatible state kinds, and unsupported statements
+produce diagnostics before the runtime receives the presentation IR.
+
+Portable IR:
+
+```text
+PreviewModifier.fullScreenCoverWithOnDismiss
+├─ isPresented: PreviewBindingReference
+├─ onDismiss: PreviewActionProgram
+└─ content: PreviewNode
+```
+
+The built-in SwiftUI Preview template now exercises this path directly. Closing
+the default Full Screen demo changes the shared `status` state to
+`"Full Screen Closed"`.
 
 ## Next preview layers
 
-1. `.fullScreenCover(... onDismiss:)`
-2. `.sheet(item:)`
+1. `.sheet(item:)`
+2. `.fullScreenCover(item:)`
 3. animation / transitions
 4. richer control styles
 5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Full-screen presentation is another portable modifier layered above the current
-Sheet / Navigation / Interactive providers. The generic project/workspace/plugin
-core never executes arbitrary presentation closures or depends directly on
-SwiftUI presentation APIs.
+Presentation remains a portable, provider-driven layer. The generic
+project/workspace/plugin core never executes arbitrary presentation closures or
+depends directly on user-supplied SwiftUI presentation code.
