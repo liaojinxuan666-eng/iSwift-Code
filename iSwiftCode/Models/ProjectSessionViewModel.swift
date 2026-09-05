@@ -76,24 +76,53 @@ final class ProjectSessionViewModel: ObservableObject {
         self.compiler = compiler
 
         let mainPath = try! WorkspacePath("main.swift")
-        let storage = InMemoryProjectWorkspaceStorage()
         let descriptor = ProjectDescriptor(
             identifier: "iswift.scratch",
             displayName: "Scratch Project",
             entryFilePath: mainPath
         )
-        let workspace = try! ProjectWorkspace(
-            descriptor: descriptor,
-            storage: storage
-        )
+
+        let workspace: ProjectWorkspace
+
+        do {
+            let store = try ProjectStore.applicationSupport()
+            workspace = try store.openOrCreateProject(
+                descriptor: descriptor,
+                initialFiles: [
+                    mainPath: Data(Self.welcomeProgram.utf8)
+                ]
+            )
+        } catch {
+            // Persistence failure must not make the editor unusable. The same
+            // project/session API falls back to ephemeral storage.
+            let storage = InMemoryProjectWorkspaceStorage()
+            workspace = try! ProjectWorkspace(
+                descriptor: descriptor,
+                storage: storage
+            )
+            try? workspace.writeTextFile(Self.welcomeProgram, at: mainPath)
+        }
 
         self.workspace = workspace
-        self.activeFilePath = mainPath
-        self.source = Self.welcomeProgram
+        self.activeFilePath = nil
+        self.source = ""
 
-        try? workspace.writeTextFile(Self.welcomeProgram, at: mainPath)
-        self.files = [mainPath]
-        self.buffers[mainPath] = Self.welcomeProgram
+        self.files = (try? workspace.listFiles().sorted()) ?? []
+
+        // Recover a missing scratch entry file without replacing an existing
+        // user's source.
+        if !(try? workspace.contains(mainPath))! {
+            try? workspace.writeTextFile(Self.welcomeProgram, at: mainPath)
+            self.files = (try? workspace.listFiles().sorted()) ?? [mainPath]
+        }
+
+        let preferred = workspace.descriptor.entryFilePath ?? self.files.first
+        if let preferred,
+           let text = try? workspace.readTextFile(at: preferred) {
+            self.activeFilePath = preferred
+            self.source = text
+            self.buffers[preferred] = text
+        }
     }
 
     init(
