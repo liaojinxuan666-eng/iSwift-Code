@@ -132,6 +132,7 @@ enum PreviewModifier: Equatable, Sendable {
     case background(PreviewColor)
     case font(PreviewFont)
     case cornerRadius(Double)
+    case navigationTitle(String)
 
     case stackSpacing(Double)
     case horizontalAlignment(PreviewHorizontalAlignment)

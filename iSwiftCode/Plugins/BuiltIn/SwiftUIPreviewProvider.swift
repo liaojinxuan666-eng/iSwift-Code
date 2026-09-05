@@ -762,6 +762,15 @@ private struct SwiftUIPreviewSourceParser {
 
                 return .font(font)
 
+            case "navigationTitle":
+                guard let title =
+                    firstString(in: arguments) else {
+                    throw SwiftUIPreviewParseError
+                        .malformedModifier(name)
+                }
+
+                return .navigationTitle(title)
+
             case "frame":
                 return .frame(
                     try parseFrame(arguments)
@@ -1053,6 +1062,18 @@ private struct SwiftUIPreviewSourceParser {
             return nil
         }
 
+        func firstString(
+            in arguments: [SwiftUIPreviewToken]
+        ) -> String? {
+            for token in arguments {
+                if case .string(let value) = token {
+                    return value
+                }
+            }
+
+            return nil
+        }
+
         func parseColor(
             from arguments: [SwiftUIPreviewToken]
         ) -> PreviewColor? {
@@ -1291,7 +1312,8 @@ private struct SwiftUIPreviewSourceParser {
                  "foregroundStyle",
                  "background",
                  "font",
-                 "cornerRadius":
+                 "cornerRadius",
+                 "navigationTitle":
                 return true
 
             default:

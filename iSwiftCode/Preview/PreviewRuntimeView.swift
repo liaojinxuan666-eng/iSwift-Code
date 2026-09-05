@@ -548,6 +548,11 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .navigationTitle(let title):
+            return AnyView(
+                view.navigationTitle(title)
+            )
+
         case .stackSpacing,
              .horizontalAlignment,
              .verticalAlignment,

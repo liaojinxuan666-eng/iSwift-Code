@@ -163,8 +163,24 @@ enum BuiltInProjectTemplates {
                                 .frame(maxWidth: .infinity)
                                 .background(.blue)
                                 .cornerRadius(14)
+
+                                NavigationLink("Open Details") {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Preview Details")
+                                            .font(.title2)
+
+                                        Text("Hello, \(name)")
+                                            .font(.headline)
+
+                                        Text("Count: \(count)")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(20)
+                                    .navigationTitle("Details")
+                                }
                             }
                             .padding(20)
+                            .navigationTitle("{{PROJECT_NAME}}")
                         }
                     }
                 }
