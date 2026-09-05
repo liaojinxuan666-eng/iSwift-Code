@@ -88,6 +88,14 @@ struct PreviewStateDefinition: Equatable, Sendable {
     let initialValue: PreviewStateValue
 }
 
+/// Portable reference to mutable preview state.
+///
+/// This is intentionally not SwiftUI.Binding. Providers emit the reference and
+/// the signed runtime decides how to expose a native binding for each control.
+struct PreviewBindingReference: Equatable, Sendable {
+    let stateName: String
+}
+
 enum PreviewDimension: Equatable, Sendable {
     case points(Double)
     case infinity
@@ -135,6 +143,15 @@ indirect enum PreviewNode: Equatable, Sendable {
     /// A string literal containing simple state interpolation, for example
     /// `Text("Count: \(count)")`.
     case interpolatedText(String)
+
+    case textField(
+        prompt: String,
+        text: PreviewBindingReference
+    )
+    case toggle(
+        title: String,
+        isOn: PreviewBindingReference
+    )
 
     case button(title: String)
     case image(systemName: String)

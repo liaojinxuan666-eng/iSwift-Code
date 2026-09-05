@@ -42,6 +42,20 @@ final class PreviewStateStore: ObservableObject {
         )
     }
 
+    func stringValue(for name: String) -> String {
+        guard case .string(let value) = values[name] else {
+            return ""
+        }
+        return value
+    }
+
+    func boolValue(for name: String) -> Bool {
+        guard case .bool(let value) = values[name] else {
+            return false
+        }
+        return value
+    }
+
     func displayText(for name: String) -> String {
         values[name]?.displayText ?? ""
     }

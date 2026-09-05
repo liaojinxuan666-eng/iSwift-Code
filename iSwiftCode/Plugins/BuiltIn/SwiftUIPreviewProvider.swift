@@ -4,7 +4,7 @@ final class SwiftUIPreviewProvider: PreviewProvider {
     let manifest = PluginManifest(
         identifier: "com.iswift.preview.swiftui",
         displayName: "SwiftUI Preview Provider",
-        version: "0.1.3",
+        version: "0.1.4",
         capabilities: [.preview],
         executionMode: .builtIn
     )
@@ -80,6 +80,7 @@ enum SwiftUIPreviewParseError: Error, Equatable, Sendable {
     case malformedNode(String)
     case malformedModifier(String)
     case malformedLayout(String)
+    case invalidBinding(control: String, state: String)
     case unterminatedString
 }
 
@@ -97,6 +98,9 @@ extension SwiftUIPreviewParseError: LocalizedError {
 
         case .malformedLayout(let name):
             return "Malformed SwiftUI layout arguments for '\(name)'."
+
+        case .invalidBinding(let control, let state):
+            return "SwiftUI preview control '\(control)' references unknown @State '\(state)'."
 
         case .unterminatedString:
             return "Unterminated string literal in preview source."
@@ -117,6 +121,7 @@ private enum SwiftUIPreviewToken: Equatable {
     case dot
     case atSign
     case equal
+    case dollarSign
 }
 
 private struct SwiftUIPreviewLexer {
@@ -177,6 +182,9 @@ private struct SwiftUIPreviewLexer {
 
             case "=":
                 tokens.append(.equal)
+
+            case "$":
+                tokens.append(.dollarSign)
 
             case "\"":
                 var value = ""
@@ -451,6 +459,30 @@ private struct SwiftUIPreviewSourceParser {
             case "Text":
                 base = try parseTextNode()
 
+            case "TextField":
+                let parsed = try parseBoundControl(
+                    controlName: "TextField",
+                    bindingLabel: "text"
+                )
+                base = .textField(
+                    prompt: parsed.title,
+                    text: PreviewBindingReference(
+                        stateName: parsed.stateName
+                    )
+                )
+
+            case "Toggle":
+                let parsed = try parseBoundControl(
+                    controlName: "Toggle",
+                    bindingLabel: "isOn"
+                )
+                base = .toggle(
+                    title: parsed.title,
+                    isOn: PreviewBindingReference(
+                        stateName: parsed.stateName
+                    )
+                )
+
             case "Image":
                 base = .image(
                     systemName:
@@ -584,6 +616,58 @@ private struct SwiftUIPreviewSourceParser {
             }
 
             return node
+        }
+
+        mutating func parseBoundControl(
+            controlName: String,
+            bindingLabel: String
+        ) throws -> (title: String, stateName: String) {
+            guard consume(.leftParen) else {
+                throw SwiftUIPreviewParseError
+                    .malformedNode(controlName)
+            }
+
+            var title: String?
+            var stateName: String?
+
+            while index < tokens.count,
+                  tokens[index] != .rightParen {
+                if title == nil,
+                   case .string(let value) = tokens[index] {
+                    title = value
+                    index += 1
+                    continue
+                }
+
+                if case .identifier(let label) = tokens[index],
+                   label == bindingLabel,
+                   index + 3 < tokens.count,
+                   tokens[index + 1] == .colon,
+                   tokens[index + 2] == .dollarSign,
+                   case .identifier(let name) = tokens[index + 3] {
+                    stateName = name
+                    index += 4
+                    continue
+                }
+
+                index += 1
+            }
+
+            guard consume(.rightParen),
+                  let title,
+                  let stateName else {
+                throw SwiftUIPreviewParseError
+                    .malformedNode(controlName)
+            }
+
+            guard stateNames.contains(stateName) else {
+                throw SwiftUIPreviewParseError.invalidBinding(
+                    control: controlName,
+                    state: stateName
+                )
+            }
+
+            return (title, stateName)
         }
 
         mutating func parseModifiers(
@@ -1180,6 +1264,8 @@ private struct SwiftUIPreviewSourceParser {
         ) -> Bool {
             switch name {
             case "Text",
+                 "TextField",
+                 "Toggle",
                  "Button",
                  "Image",
                  "Spacer",

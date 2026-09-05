@@ -72,6 +72,27 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .textField(let prompt, let reference):
+            return AnyView(
+                TextField(
+                    prompt,
+                    text: stringBinding(
+                        for: reference.stateName
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+            )
+
+        case .toggle(let title, let reference):
+            return AnyView(
+                Toggle(
+                    title,
+                    isOn: boolBinding(
+                        for: reference.stateName
+                    )
+                )
+            )
+
         case .button(let title):
             return AnyView(
                 Button(title) {}
@@ -337,6 +358,42 @@ private struct PreviewNodeView: View {
                 stateStore: stateStore
             )
         }
+    }
+
+    private func stringBinding(
+        for stateName: String
+    ) -> Binding<String> {
+        Binding(
+            get: {
+                stateStore.stringValue(
+                    for: stateName
+                )
+            },
+            set: { value in
+                stateStore.setValue(
+                    .string(value),
+                    for: stateName
+                )
+            }
+        )
+    }
+
+    private func boolBinding(
+        for stateName: String
+    ) -> Binding<Bool> {
+        Binding(
+            get: {
+                stateStore.boolValue(
+                    for: stateName
+                )
+            },
+            set: { value in
+                stateStore.setValue(
+                    .bool(value),
+                    for: stateName
+                )
+            }
+        )
     }
 
     private func apply(

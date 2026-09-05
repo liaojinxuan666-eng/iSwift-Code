@@ -114,6 +114,8 @@ enum BuiltInProjectTemplates {
                 struct ContentView: View {
                     @State private var status = "Ready"
                     @State private var count = 0
+                    @State private var name = "iSwift Code"
+                    @State private var enabled = true
 
                     var body: some View {
                         NavigationStack {
