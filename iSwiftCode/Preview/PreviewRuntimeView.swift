@@ -3,24 +3,74 @@ import SwiftUI
 struct PreviewRuntimeView: View {
     let document: PreviewDocument
 
+    @StateObject private var stateStore: PreviewStateStore
+
+    init(document: PreviewDocument) {
+        self.document = document
+        _stateStore = StateObject(
+            wrappedValue: PreviewStateStore(
+                definitions: document.stateDefinitions
+            )
+        )
+    }
+
     var body: some View {
-        PreviewNodeView(node: document.root)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(uiColor: .systemBackground))
+        PreviewNodeView(
+            node: document.root,
+            stateStore: stateStore
+        )
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity
+        )
+        .background(
+            Color(uiColor: .systemBackground)
+        )
+        .onChange(
+            of: document.stateDefinitions
+        ) { _, definitions in
+            stateStore.reload(
+                definitions: definitions
+            )
+        }
     }
 }
 
 private struct PreviewNodeView: View {
     let node: PreviewNode
 
+    @ObservedObject var stateStore: PreviewStateStore
+
     var body: some View {
         render(node)
     }
 
-    private func render(_ node: PreviewNode) -> AnyView {
+    private func render(
+        _ node: PreviewNode
+    ) -> AnyView {
         switch node {
         case .text(let value):
-            return AnyView(Text(value))
+            return AnyView(
+                Text(value)
+            )
+
+        case .stateText(let name):
+            return AnyView(
+                Text(
+                    stateStore.displayText(
+                        for: name
+                    )
+                )
+            )
+
+        case .interpolatedText(let template):
+            return AnyView(
+                Text(
+                    stateStore.resolveInterpolations(
+                        in: template
+                    )
+                )
+            )
 
         case .button(let title):
             return AnyView(
@@ -35,7 +85,9 @@ private struct PreviewNodeView: View {
             )
 
         case .spacer:
-            return AnyView(Spacer(minLength: 8))
+            return AnyView(
+                Spacer(minLength: 8)
+            )
 
         case .vStack(let children):
             return renderVStack(
@@ -80,7 +132,10 @@ private struct PreviewNodeView: View {
                 }
             )
 
-        case .modified(let base, let modifiers):
+        case .modified(
+            let base,
+            let modifiers
+        ):
             switch base {
             case .vStack(let children):
                 return renderVStack(
@@ -104,7 +159,10 @@ private struct PreviewNodeView: View {
                 var view = render(base)
 
                 for modifier in modifiers {
-                    view = apply(modifier, to: view)
+                    view = apply(
+                        modifier,
+                        to: view
+                    )
                 }
 
                 return view
@@ -117,34 +175,52 @@ private struct PreviewNodeView: View {
         modifiers: [PreviewModifier]
     ) -> AnyView {
         let alignment = modifiers
-            .compactMap { modifier -> PreviewHorizontalAlignment? in
-                if case .horizontalAlignment(let value) = modifier {
+            .compactMap {
+                modifier
+                    -> PreviewHorizontalAlignment? in
+                if case .horizontalAlignment(
+                    let value
+                ) = modifier {
                     return value
                 }
+
                 return nil
             }
             .last ?? .center
 
         let spacing = modifiers
-            .compactMap { modifier -> Double? in
-                if case .stackSpacing(let value) = modifier {
+            .compactMap {
+                modifier -> Double? in
+                if case .stackSpacing(
+                    let value
+                ) = modifier {
                     return value
                 }
+
                 return nil
             }
             .last
 
         var view = AnyView(
             VStack(
-                alignment: swiftUIHorizontalAlignment(alignment),
+                alignment:
+                    swiftUIHorizontalAlignment(
+                        alignment
+                    ),
                 spacing: cgFloat(spacing)
             ) {
                 childViews(children)
             }
         )
 
-        for modifier in modifiers where !isStackLayoutModifier(modifier) {
-            view = apply(modifier, to: view)
+        for modifier in modifiers
+            where !isStackLayoutModifier(
+                modifier
+            ) {
+            view = apply(
+                modifier,
+                to: view
+            )
         }
 
         return view
@@ -155,34 +231,52 @@ private struct PreviewNodeView: View {
         modifiers: [PreviewModifier]
     ) -> AnyView {
         let alignment = modifiers
-            .compactMap { modifier -> PreviewVerticalAlignment? in
-                if case .verticalAlignment(let value) = modifier {
+            .compactMap {
+                modifier
+                    -> PreviewVerticalAlignment? in
+                if case .verticalAlignment(
+                    let value
+                ) = modifier {
                     return value
                 }
+
                 return nil
             }
             .last ?? .center
 
         let spacing = modifiers
-            .compactMap { modifier -> Double? in
-                if case .stackSpacing(let value) = modifier {
+            .compactMap {
+                modifier -> Double? in
+                if case .stackSpacing(
+                    let value
+                ) = modifier {
                     return value
                 }
+
                 return nil
             }
             .last
 
         var view = AnyView(
             HStack(
-                alignment: swiftUIVerticalAlignment(alignment),
+                alignment:
+                    swiftUIVerticalAlignment(
+                        alignment
+                    ),
                 spacing: cgFloat(spacing)
             ) {
                 childViews(children)
             }
         )
 
-        for modifier in modifiers where !isStackLayoutModifier(modifier) {
-            view = apply(modifier, to: view)
+        for modifier in modifiers
+            where !isStackLayoutModifier(
+                modifier
+            ) {
+            view = apply(
+                modifier,
+                to: view
+            )
         }
 
         return view
@@ -193,31 +287,55 @@ private struct PreviewNodeView: View {
         modifiers: [PreviewModifier]
     ) -> AnyView {
         let alignment = modifiers
-            .compactMap { modifier -> PreviewAlignment? in
-                if case .zStackAlignment(let value) = modifier {
+            .compactMap {
+                modifier
+                    -> PreviewAlignment? in
+                if case .zStackAlignment(
+                    let value
+                ) = modifier {
                     return value
                 }
+
                 return nil
             }
             .last ?? .center
 
         var view = AnyView(
-            ZStack(alignment: swiftUIAlignment(alignment)) {
+            ZStack(
+                alignment:
+                    swiftUIAlignment(
+                        alignment
+                    )
+            ) {
                 childViews(children)
             }
         )
 
-        for modifier in modifiers where !isStackLayoutModifier(modifier) {
-            view = apply(modifier, to: view)
+        for modifier in modifiers
+            where !isStackLayoutModifier(
+                modifier
+            ) {
+            view = apply(
+                modifier,
+                to: view
+            )
         }
 
         return view
     }
 
     @ViewBuilder
-    private func childViews(_ children: [PreviewNode]) -> some View {
-        ForEach(Array(children.enumerated()), id: \.offset) { item in
-            PreviewNodeView(node: item.element)
+    private func childViews(
+        _ children: [PreviewNode]
+    ) -> some View {
+        ForEach(
+            Array(children.enumerated()),
+            id: \.offset
+        ) { item in
+            PreviewNodeView(
+                node: item.element,
+                stateStore: stateStore
+            )
         }
     }
 
@@ -229,17 +347,25 @@ private struct PreviewNodeView: View {
         case .padding(let amount):
             if let amount {
                 return AnyView(
-                    view.padding(CGFloat(amount))
+                    view.padding(
+                        CGFloat(amount)
+                    )
                 )
             }
-            return AnyView(view.padding())
+
+            return AnyView(
+                view.padding()
+            )
 
         case .frame(let frame):
             var result = view
 
-            if frame.width != nil || frame.height != nil {
-                let width: CGFloat? = cgFloat(frame.width)
-                let height: CGFloat? = cgFloat(frame.height)
+            if frame.width != nil ||
+                frame.height != nil {
+                let width: CGFloat? =
+                    cgFloat(frame.width)
+                let height: CGFloat? =
+                    cgFloat(frame.height)
 
                 result = AnyView(
                     result.frame(
@@ -249,9 +375,16 @@ private struct PreviewNodeView: View {
                 )
             }
 
-            if frame.maxWidth != nil || frame.maxHeight != nil {
-                let maxWidth: CGFloat? = dimension(frame.maxWidth)
-                let maxHeight: CGFloat? = dimension(frame.maxHeight)
+            if frame.maxWidth != nil ||
+                frame.maxHeight != nil {
+                let maxWidth: CGFloat? =
+                    dimension(
+                        frame.maxWidth
+                    )
+                let maxHeight: CGFloat? =
+                    dimension(
+                        frame.maxHeight
+                    )
 
                 result = AnyView(
                     result.frame(
@@ -314,7 +447,9 @@ private struct PreviewNodeView: View {
         }
     }
 
-    private func cgFloat(_ value: Double?) -> CGFloat? {
+    private func cgFloat(
+        _ value: Double?
+    ) -> CGFloat? {
         guard let value else {
             return nil
         }
@@ -339,24 +474,40 @@ private struct PreviewNodeView: View {
     }
 
     private func swiftUIHorizontalAlignment(
-        _ alignment: PreviewHorizontalAlignment
+        _ alignment:
+            PreviewHorizontalAlignment
     ) -> HorizontalAlignment {
         switch alignment {
-        case .leading: return .leading
-        case .center: return .center
-        case .trailing: return .trailing
+        case .leading:
+            return .leading
+
+        case .center:
+            return .center
+
+        case .trailing:
+            return .trailing
         }
     }
 
     private func swiftUIVerticalAlignment(
-        _ alignment: PreviewVerticalAlignment
+        _ alignment:
+            PreviewVerticalAlignment
     ) -> VerticalAlignment {
         switch alignment {
-        case .top: return .top
-        case .center: return .center
-        case .bottom: return .bottom
-        case .firstTextBaseline: return .firstTextBaseline
-        case .lastTextBaseline: return .lastTextBaseline
+        case .top:
+            return .top
+
+        case .center:
+            return .center
+
+        case .bottom:
+            return .bottom
+
+        case .firstTextBaseline:
+            return .firstTextBaseline
+
+        case .lastTextBaseline:
+            return .lastTextBaseline
         }
     }
 
@@ -364,15 +515,32 @@ private struct PreviewNodeView: View {
         _ alignment: PreviewAlignment
     ) -> Alignment {
         switch alignment {
-        case .center: return .center
-        case .leading: return .leading
-        case .trailing: return .trailing
-        case .top: return .top
-        case .bottom: return .bottom
-        case .topLeading: return .topLeading
-        case .topTrailing: return .topTrailing
-        case .bottomLeading: return .bottomLeading
-        case .bottomTrailing: return .bottomTrailing
+        case .center:
+            return .center
+
+        case .leading:
+            return .leading
+
+        case .trailing:
+            return .trailing
+
+        case .top:
+            return .top
+
+        case .bottom:
+            return .bottom
+
+        case .topLeading:
+            return .topLeading
+
+        case .topTrailing:
+            return .topTrailing
+
+        case .bottomLeading:
+            return .bottomLeading
+
+        case .bottomTrailing:
+            return .bottomTrailing
         }
     }
 

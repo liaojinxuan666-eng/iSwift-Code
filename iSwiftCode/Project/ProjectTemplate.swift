@@ -42,16 +42,27 @@ struct ProjectTemplate: Identifiable, Sendable {
         )
 
         let files = Dictionary(
-            uniqueKeysWithValues: initialTextFiles.map { path, text in
-                let expanded = text.replacingOccurrences(
-                    of: "{{PROJECT_NAME}}",
-                    with: projectDisplayName
-                )
-                return (path, Data(expanded.utf8))
-            }
+            uniqueKeysWithValues:
+                initialTextFiles.map {
+                    path,
+                    text in
+                    let expanded =
+                        text.replacingOccurrences(
+                            of: "{{PROJECT_NAME}}",
+                            with:
+                                projectDisplayName
+                        )
+                    return (
+                        path,
+                        Data(expanded.utf8)
+                    )
+                }
         )
 
-        return (descriptor, files)
+        return (
+            descriptor,
+            files
+        )
     }
 }
 
@@ -59,20 +70,24 @@ enum BuiltInProjectTemplates {
     static let empty = ProjectTemplate(
         id: "empty",
         displayName: "Empty Project",
-        summary: "Start with an empty multi-file workspace."
+        summary:
+            "Start with an empty multi-file workspace."
     )
 
     static let swiftConsole = ProjectTemplate(
         id: "swift-console",
         displayName: "Swift Console",
-        summary: "A local Swift project with a runnable main.swift.",
-        entryFilePath: try! WorkspacePath("main.swift"),
+        summary:
+            "A local Swift project with a runnable main.swift.",
+        entryFilePath:
+            try! WorkspacePath("main.swift"),
         initialTextFiles: [
-            try! WorkspacePath("main.swift"): """
-            let projectName = "{{PROJECT_NAME}}"
-            print(projectName)
-            print("Hello from iSwift Code")
-            """
+            try! WorkspacePath("main.swift"):
+                """
+                let projectName = "{{PROJECT_NAME}}"
+                print(projectName)
+                print("Hello from iSwift Code")
+                """
         ],
         descriptorAttributes: [
             "language": "swift",
@@ -83,47 +98,60 @@ enum BuiltInProjectTemplates {
     static let swiftUIPreview = ProjectTemplate(
         id: "swiftui-preview",
         displayName: "SwiftUI Preview",
-        summary: "A styled SwiftUI project for the signed App Preview runtime.",
-        entryFilePath: try! WorkspacePath("ContentView.swift"),
+        summary:
+            "A state-aware SwiftUI project for the signed App Preview runtime.",
+        entryFilePath:
+            try! WorkspacePath(
+                "ContentView.swift"
+            ),
         initialTextFiles: [
-            try! WorkspacePath("ContentView.swift"): """
-            import SwiftUI
+            try! WorkspacePath(
+                "ContentView.swift"
+            ):
+                """
+                import SwiftUI
 
-            struct ContentView: View {
-                var body: some View {
-                    NavigationStack {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack(alignment: .center, spacing: 12) {
-                                Image(systemName: "swift")
-                                    .foregroundStyle(.orange)
-                                    .font(.largeTitle)
+                struct ContentView: View {
+                    @State private var status = "Ready"
+                    @State private var count = 0
 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("{{PROJECT_NAME}}")
-                                        .font(.title)
+                    var body: some View {
+                        NavigationStack {
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack(alignment: .center, spacing: 12) {
+                                    Image(systemName: "swift")
+                                        .foregroundStyle(.orange)
+                                        .font(.largeTitle)
 
-                                    Text("Live App Preview")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("{{PROJECT_NAME}}")
+                                            .font(.title)
+
+                                        Text(status)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
-                            }
 
-                            HStack(spacing: 12) {
-                                Button("Run") { }
-                                Spacer()
-                                Text("0.1.3")
-                                    .font(.caption)
+                                Text("Count: \\(count)")
+                                    .font(.headline)
+
+                                HStack(spacing: 12) {
+                                    Button("Run") { }
+                                    Spacer()
+                                    Text("0.1.3")
+                                        .font(.caption)
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity)
+                                .background(.blue)
+                                .cornerRadius(14)
                             }
-                            .padding(12)
-                            .frame(maxWidth: .infinity)
-                            .background(.blue)
-                            .cornerRadius(14)
+                            .padding(20)
                         }
-                        .padding(20)
                     }
                 }
-            }
-            """
+                """
         ],
         descriptorAttributes: [
             "language": "swift",
@@ -138,7 +166,11 @@ enum BuiltInProjectTemplates {
         empty
     ]
 
-    static func template(id: String) -> ProjectTemplate? {
-        all.first { $0.id == id }
+    static func template(
+        id: String
+    ) -> ProjectTemplate? {
+        all.first {
+            $0.id == id
+        }
     }
 }

@@ -17,15 +17,14 @@ App Preview remains a core iSwift Code feature with three separate product paths
 - signed Native SwiftUI Preview Runtime
 - SwiftUI Preview project template
 
-### Modifier IR
+### Modifier and layout IR
 
-- `.padding()` / `.padding(number)`
-- `.frame(width:height:)`
-- `.frame(maxWidth:maxHeight:)`, including `.infinity`
-- `.foregroundStyle(color)`
-- `.background(color)`
-- `.font(style)`
-- `.cornerRadius(number)`
+- padding / frame
+- foreground/background
+- font / corner radius
+- VStack/HStack spacing
+- VStack/HStack alignment
+- ZStack alignment
 
 ### Live Preview
 
@@ -35,31 +34,56 @@ App Preview remains a core iSwift Code feature with three separate product paths
 - cancellation of stale refreshes
 - manual refresh and close controls
 
-### Stack layout IR — current batch
+### Preview State Model — current batch
 
-SwiftUI stack initializer layout is now preserved instead of being discarded.
+The Preview IR can now carry primitive SwiftUI-style `@State` declarations:
 
-Supported:
+- `String`
+- `Bool`
+- numeric values
 
-- `VStack(alignment: .leading/.center/.trailing, spacing: number)`
-- `HStack(alignment: .top/.center/.bottom/.firstTextBaseline/.lastTextBaseline, spacing: number)`
-- `ZStack(alignment: .center/.leading/.trailing/.top/.bottom/.topLeading/.topTrailing/.bottomLeading/.bottomTrailing)`
+Examples:
 
-These values remain portable Preview IR values. The signed SwiftUI runtime maps
-them to native `HorizontalAlignment`, `VerticalAlignment`, and `Alignment`
-values only at render time.
+```swift
+@State private var status = "Ready"
+@State private var enabled = true
+@State private var count = 0
+```
+
+The built-in SwiftUI Preview Provider extracts those declarations into portable
+`PreviewStateDefinition` values. The provider does not expose SwiftUI's native
+`State` object to the generic Preview IR.
+
+The signed Preview Runtime owns a `PreviewStateStore` initialized from those
+definitions.
+
+State-backed text is also supported:
+
+```swift
+Text(status)
+Text("Count: \(count)")
+```
+
+Simple identifier interpolation is resolved by the runtime. Existing literal
+`Text("Hello")` behavior remains unchanged.
+
+This state store is intentionally built before Binding/controls so the next
+batch can attach `Binding`, `TextField`, and `Toggle` to one stable runtime
+model instead of implementing control-local state.
 
 ## Next preview layers
 
-1. Preview state model for `@State`
-2. `Binding`
-3. interactive `TextField`, `Toggle`, and `Picker`
-4. navigation destinations and sheets
-5. animation/transitions
-6. iPad side-by-side editor/preview layout
+1. portable `Binding` references
+2. interactive `TextField`
+3. interactive `Toggle`
+4. `Picker`
+5. navigation destinations and sheets
+6. animation/transitions
+7. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Stack layout parsing stays inside the SwiftUI Preview Provider. ProjectStore,
-ProjectWorkspace, ProjectSession, Live Preview scheduling, and the generic plugin
-core remain unaware of SwiftUI-specific alignment types.
+`@State` source parsing remains inside the SwiftUI Preview Provider. Mutable
+preview values live in the signed Preview Runtime. ProjectStore,
+ProjectWorkspace, ProjectSession, Live Preview scheduling, and the generic
+Plugin core remain unaware of SwiftUI's native state system.

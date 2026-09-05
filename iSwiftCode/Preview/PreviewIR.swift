@@ -61,6 +61,33 @@ enum PreviewAlignment: String, Codable, CaseIterable, Equatable, Sendable {
     case bottomTrailing
 }
 
+enum PreviewStateValue: Equatable, Sendable {
+    case string(String)
+    case bool(Bool)
+    case number(Double)
+
+    var displayText: String {
+        switch self {
+        case .string(let value):
+            return value
+
+        case .bool(let value):
+            return value ? "true" : "false"
+
+        case .number(let value):
+            if value.rounded() == value {
+                return String(Int(value))
+            }
+            return String(value)
+        }
+    }
+}
+
+struct PreviewStateDefinition: Equatable, Sendable {
+    let name: String
+    let initialValue: PreviewStateValue
+}
+
 enum PreviewDimension: Equatable, Sendable {
     case points(Double)
     case infinity
@@ -93,8 +120,6 @@ enum PreviewModifier: Equatable, Sendable {
     case font(PreviewFont)
     case cornerRadius(Double)
 
-    // Container-layout values are represented in the same portable IR layer,
-    // but the runtime consumes them while constructing the corresponding stack.
     case stackSpacing(Double)
     case horizontalAlignment(PreviewHorizontalAlignment)
     case verticalAlignment(PreviewVerticalAlignment)
@@ -103,6 +128,14 @@ enum PreviewModifier: Equatable, Sendable {
 
 indirect enum PreviewNode: Equatable, Sendable {
     case text(String)
+
+    /// Text driven by one preview-state value, for example `Text(title)`.
+    case stateText(name: String)
+
+    /// A string literal containing simple state interpolation, for example
+    /// `Text("Count: \(count)")`.
+    case interpolatedText(String)
+
     case button(title: String)
     case image(systemName: String)
     case spacer
@@ -119,24 +152,34 @@ extension PreviewNode {
     func applying(_ modifier: PreviewModifier) -> PreviewNode {
         switch self {
         case .modified(let base, let modifiers):
-            return .modified(base: base, modifiers: modifiers + [modifier])
+            return .modified(
+                base: base,
+                modifiers: modifiers + [modifier]
+            )
+
         default:
-            return .modified(base: self, modifiers: [modifier])
+            return .modified(
+                base: self,
+                modifiers: [modifier]
+            )
         }
     }
 }
 
 struct PreviewDocument: Equatable, Sendable {
     let root: PreviewNode
+    let stateDefinitions: [PreviewStateDefinition]
     let sourceFilePath: String?
     let title: String?
 
     init(
         root: PreviewNode,
+        stateDefinitions: [PreviewStateDefinition] = [],
         sourceFilePath: String? = nil,
         title: String? = nil
     ) {
         self.root = root
+        self.stateDefinitions = stateDefinitions
         self.sourceFilePath = sourceFilePath
         self.title = title
     }
