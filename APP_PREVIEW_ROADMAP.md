@@ -27,32 +27,39 @@ App Preview remains a core iSwift Code feature with three separate product paths
 - `.font(style)`
 - `.cornerRadius(number)`
 
-### Live Preview — current batch
+### Live Preview
 
-The preview is now an inline workspace panel instead of a modal sheet.
+- inline workspace preview panel
+- unsaved-buffer snapshots
+- 350 ms debounced automatic refresh
+- cancellation of stale refreshes
+- manual refresh and close controls
 
-While the preview panel is visible:
+### Stack layout IR — current batch
 
-1. the user keeps the code editor available in the same workspace,
-2. source edits schedule a debounced preview update,
-3. rapid keystrokes cancel older pending updates,
-4. only the latest edit takes a new workspace snapshot,
-5. the snapshot still includes unsaved editor buffers,
-6. the signed Preview Runtime replaces the visible preview without rebuilding or reinstalling an IPA.
+SwiftUI stack initializer layout is now preserved instead of being discarded.
 
-Default debounce delay: **350 ms**.
+Supported:
 
-The debounce lives in `PreviewSessionViewModel`, not in the SwiftUI Preview Provider. This keeps PreviewProvider implementations independent from editor timing policy.
+- `VStack(alignment: .leading/.center/.trailing, spacing: number)`
+- `HStack(alignment: .top/.center/.bottom/.firstTextBaseline/.lastTextBaseline, spacing: number)`
+- `ZStack(alignment: .center/.leading/.trailing/.top/.bottom/.topLeading/.topTrailing/.bottomLeading/.bottomTrailing)`
+
+These values remain portable Preview IR values. The signed SwiftUI runtime maps
+them to native `HorizontalAlignment`, `VerticalAlignment`, and `Alignment`
+values only at render time.
 
 ## Next preview layers
 
-1. spacing/alignment and richer modifier parsing
-2. State / Binding preview state model
-3. TextField / Toggle / Picker interactive controls
+1. Preview state model for `@State`
+2. `Binding`
+3. interactive `TextField`, `Toggle`, and `Picker`
 4. navigation destinations and sheets
 5. animation/transitions
 6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Live Preview remains snapshot-driven. ProjectStore, ProjectWorkspace, and ProjectSession do not gain SwiftUI-specific behavior, and preview generation never requires saving the active file first.
+Stack layout parsing stays inside the SwiftUI Preview Provider. ProjectStore,
+ProjectWorkspace, ProjectSession, Live Preview scheduling, and the generic plugin
+core remain unaware of SwiftUI-specific alignment types.

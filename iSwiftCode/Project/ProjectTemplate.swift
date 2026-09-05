@@ -24,18 +24,33 @@ struct ProjectTemplate: Identifiable, Sendable {
         self.descriptorAttributes = descriptorAttributes
     }
 
-    func instantiate(projectIdentifier: String, projectDisplayName: String) -> (descriptor: ProjectDescriptor, initialFiles: [WorkspacePath: Data]) {
+    func instantiate(
+        projectIdentifier: String,
+        projectDisplayName: String
+    ) -> (
+        descriptor: ProjectDescriptor,
+        initialFiles: [WorkspacePath: Data]
+    ) {
         let descriptor = ProjectDescriptor(
             identifier: projectIdentifier,
             displayName: projectDisplayName,
             entryFilePath: entryFilePath,
-            attributes: descriptorAttributes.merging(["template": id], uniquingKeysWith: { _, new in new })
+            attributes: descriptorAttributes.merging(
+                ["template": id],
+                uniquingKeysWith: { _, new in new }
+            )
         )
 
-        let files = Dictionary(uniqueKeysWithValues: initialTextFiles.map { path, text in
-            let expanded = text.replacingOccurrences(of: "{{PROJECT_NAME}}", with: projectDisplayName)
-            return (path, Data(expanded.utf8))
-        })
+        let files = Dictionary(
+            uniqueKeysWithValues: initialTextFiles.map { path, text in
+                let expanded = text.replacingOccurrences(
+                    of: "{{PROJECT_NAME}}",
+                    with: projectDisplayName
+                )
+                return (path, Data(expanded.utf8))
+            }
+        )
+
         return (descriptor, files)
     }
 }
@@ -59,7 +74,10 @@ enum BuiltInProjectTemplates {
             print("Hello from iSwift Code")
             """
         ],
-        descriptorAttributes: ["language": "swift", "projectKind": "console"]
+        descriptorAttributes: [
+            "language": "swift",
+            "projectKind": "console"
+        ]
     )
 
     static let swiftUIPreview = ProjectTemplate(
@@ -74,20 +92,23 @@ enum BuiltInProjectTemplates {
             struct ContentView: View {
                 var body: some View {
                     NavigationStack {
-                        VStack {
-                            Image(systemName: "swift")
-                                .foregroundStyle(.orange)
-                                .font(.largeTitle)
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(alignment: .center, spacing: 12) {
+                                Image(systemName: "swift")
+                                    .foregroundStyle(.orange)
+                                    .font(.largeTitle)
 
-                            Text("{{PROJECT_NAME}}")
-                                .font(.title)
-                                .foregroundStyle(.primary)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("{{PROJECT_NAME}}")
+                                        .font(.title)
 
-                            Text("Live App Preview")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                    Text("Live App Preview")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
 
-                            HStack {
+                            HStack(spacing: 12) {
                                 Button("Run") { }
                                 Spacer()
                                 Text("0.1.3")
@@ -104,10 +125,20 @@ enum BuiltInProjectTemplates {
             }
             """
         ],
-        descriptorAttributes: ["language": "swift", "projectKind": "app-preview", "previewProvider": "swiftui"]
+        descriptorAttributes: [
+            "language": "swift",
+            "projectKind": "app-preview",
+            "previewProvider": "swiftui"
+        ]
     )
 
-    static let all: [ProjectTemplate] = [swiftUIPreview, swiftConsole, empty]
+    static let all: [ProjectTemplate] = [
+        swiftUIPreview,
+        swiftConsole,
+        empty
+    ]
 
-    static func template(id: String) -> ProjectTemplate? { all.first { $0.id == id } }
+    static func template(id: String) -> ProjectTemplate? {
+        all.first { $0.id == id }
+    }
 }

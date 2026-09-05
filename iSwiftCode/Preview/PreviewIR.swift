@@ -35,6 +35,32 @@ enum PreviewFont: String, Codable, CaseIterable, Equatable, Sendable {
     case caption2
 }
 
+enum PreviewHorizontalAlignment: String, Codable, CaseIterable, Equatable, Sendable {
+    case leading
+    case center
+    case trailing
+}
+
+enum PreviewVerticalAlignment: String, Codable, CaseIterable, Equatable, Sendable {
+    case top
+    case center
+    case bottom
+    case firstTextBaseline
+    case lastTextBaseline
+}
+
+enum PreviewAlignment: String, Codable, CaseIterable, Equatable, Sendable {
+    case center
+    case leading
+    case trailing
+    case top
+    case bottom
+    case topLeading
+    case topTrailing
+    case bottomLeading
+    case bottomTrailing
+}
+
 enum PreviewDimension: Equatable, Sendable {
     case points(Double)
     case infinity
@@ -66,6 +92,13 @@ enum PreviewModifier: Equatable, Sendable {
     case background(PreviewColor)
     case font(PreviewFont)
     case cornerRadius(Double)
+
+    // Container-layout values are represented in the same portable IR layer,
+    // but the runtime consumes them while constructing the corresponding stack.
+    case stackSpacing(Double)
+    case horizontalAlignment(PreviewHorizontalAlignment)
+    case verticalAlignment(PreviewVerticalAlignment)
+    case zStackAlignment(PreviewAlignment)
 }
 
 indirect enum PreviewNode: Equatable, Sendable {

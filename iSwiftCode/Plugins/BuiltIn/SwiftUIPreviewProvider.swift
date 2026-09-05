@@ -4,7 +4,7 @@ final class SwiftUIPreviewProvider: PreviewProvider {
     let manifest = PluginManifest(
         identifier: "com.iswift.preview.swiftui",
         displayName: "SwiftUI Preview Provider",
-        version: "0.1.1",
+        version: "0.1.2",
         capabilities: [.preview],
         executionMode: .builtIn
     )
@@ -58,6 +58,7 @@ enum SwiftUIPreviewParseError: Error, Equatable, Sendable {
     case noSupportedRoot
     case malformedNode(String)
     case malformedModifier(String)
+    case malformedLayout(String)
     case unterminatedString
 }
 
@@ -70,6 +71,8 @@ extension SwiftUIPreviewParseError: LocalizedError {
             return "Malformed SwiftUI preview node '\(name)'."
         case .malformedModifier(let name):
             return "Malformed SwiftUI preview modifier '.\(name)'."
+        case .malformedLayout(let name):
+            return "Malformed SwiftUI layout arguments for '\(name)'."
         case .unterminatedString:
             return "Unterminated string literal in preview source."
         }
@@ -123,6 +126,7 @@ private struct SwiftUIPreviewLexer {
             case ":": tokens.append(.colon)
             case ",": tokens.append(.comma)
             case ".": tokens.append(.dot)
+
             case "\"":
                 var value = ""
                 index = source.index(after: index)
@@ -134,6 +138,7 @@ private struct SwiftUIPreviewLexer {
                         terminated = true
                         break
                     }
+
                     if current == "\\" {
                         let escaped = source.index(after: index)
                         if escaped < source.endIndex {
@@ -150,6 +155,7 @@ private struct SwiftUIPreviewLexer {
                     } else {
                         value.append(current)
                     }
+
                     index = source.index(after: index)
                 }
 
@@ -165,15 +171,18 @@ private struct SwiftUIPreviewLexer {
 
                     while end < source.endIndex {
                         let next = source[end]
+
                         if next.isNumber {
                             end = source.index(after: end)
                             continue
                         }
+
                         if next == ".", !hasDecimalPoint {
                             hasDecimalPoint = true
                             end = source.index(after: end)
                             continue
                         }
+
                         break
                     }
 
@@ -184,11 +193,15 @@ private struct SwiftUIPreviewLexer {
                     }
                 } else if character.isLetter || character == "_" {
                     var end = source.index(after: index)
+
                     while end < source.endIndex {
                         let next = source[end]
-                        guard next.isLetter || next.isNumber || next == "_" else { break }
+                        guard next.isLetter || next.isNumber || next == "_" else {
+                            break
+                        }
                         end = source.index(after: end)
                     }
+
                     tokens.append(.identifier(String(source[index..<end])))
                     index = source.index(before: end)
                 }
@@ -210,17 +223,24 @@ private struct SwiftUIPreviewSourceParser {
         return try parser.parseRoot()
     }
 
+    private struct ParsedContainer {
+        let children: [PreviewNode]
+        let layoutModifiers: [PreviewModifier]
+    }
+
     private struct Parser {
         let tokens: [SwiftUIPreviewToken]
         var index = 0
 
         mutating func parseRoot() throws -> PreviewNode {
             while index < tokens.count {
-                if case .identifier(let name) = tokens[index], Self.isSupportedNode(name) {
+                if case .identifier(let name) = tokens[index],
+                   Self.isSupportedNode(name) {
                     return try parseNode()
                 }
                 index += 1
             }
+
             throw SwiftUIPreviewParseError.noSupportedRoot
         }
 
@@ -231,32 +251,59 @@ private struct SwiftUIPreviewSourceParser {
             }
             index += 1
 
-            let base: PreviewNode
+            var base: PreviewNode
 
             switch name {
             case "Text":
                 base = .text(try parseFirstStringArgument(nodeName: name))
+
             case "Image":
-                base = .image(systemName: try parseFirstStringArgument(nodeName: name))
+                base = .image(
+                    systemName: try parseFirstStringArgument(nodeName: name)
+                )
+
             case "Button":
                 let title = try parseFirstStringArgument(nodeName: name)
                 skipClosureIfPresent()
                 base = .button(title: title)
+
             case "Spacer":
                 skipParenthesizedArgumentsIfPresent()
                 base = .spacer
+
             case "VStack":
-                base = .vStack(children: try parseContainerChildren(nodeName: name))
+                let container = try parseContainer(nodeName: name)
+                base = .vStack(children: container.children)
+                for modifier in container.layoutModifiers {
+                    base = base.applying(modifier)
+                }
+
             case "HStack":
-                base = .hStack(children: try parseContainerChildren(nodeName: name))
+                let container = try parseContainer(nodeName: name)
+                base = .hStack(children: container.children)
+                for modifier in container.layoutModifiers {
+                    base = base.applying(modifier)
+                }
+
             case "ZStack":
-                base = .zStack(children: try parseContainerChildren(nodeName: name))
+                let container = try parseContainer(nodeName: name)
+                base = .zStack(children: container.children)
+                for modifier in container.layoutModifiers {
+                    base = base.applying(modifier)
+                }
+
             case "ScrollView":
-                base = .scrollView(children: try parseContainerChildren(nodeName: name))
+                let container = try parseContainer(nodeName: name)
+                base = .scrollView(children: container.children)
+
             case "List":
-                base = .list(children: try parseContainerChildren(nodeName: name))
+                let container = try parseContainer(nodeName: name)
+                base = .list(children: container.children)
+
             case "NavigationStack":
-                base = .navigationStack(children: try parseContainerChildren(nodeName: name))
+                let container = try parseContainer(nodeName: name)
+                base = .navigationStack(children: container.children)
+
             default:
                 throw SwiftUIPreviewParseError.noSupportedRoot
             }
@@ -287,6 +334,7 @@ private struct SwiftUIPreviewSourceParser {
             }
 
             let arguments = collectArgumentsUntilRightParen()
+
             guard consume(.rightParen) else {
                 throw SwiftUIPreviewParseError.malformedModifier(name)
             }
@@ -296,9 +344,11 @@ private struct SwiftUIPreviewSourceParser {
                 if arguments.isEmpty {
                     return .padding(nil)
                 }
+
                 if let value = firstNumber(in: arguments) {
                     return .padding(value)
                 }
+
                 throw SwiftUIPreviewParseError.malformedModifier(name)
 
             case "cornerRadius":
@@ -341,21 +391,41 @@ private struct SwiftUIPreviewSourceParser {
             while index < tokens.count {
                 if case .string(let value) = tokens[index] {
                     index += 1
+
                     while index < tokens.count, tokens[index] != .rightParen {
                         index += 1
                     }
+
                     _ = consume(.rightParen)
                     return value
                 }
-                if tokens[index] == .rightParen { break }
+
+                if tokens[index] == .rightParen {
+                    break
+                }
+
                 index += 1
             }
 
             throw SwiftUIPreviewParseError.malformedNode(nodeName)
         }
 
-        mutating func parseContainerChildren(nodeName: String) throws -> [PreviewNode] {
-            skipParenthesizedArgumentsIfPresent()
+        mutating func parseContainer(nodeName: String) throws -> ParsedContainer {
+            var arguments: [SwiftUIPreviewToken] = []
+
+            if consume(.leftParen) {
+                arguments = collectArgumentsUntilRightParen()
+
+                guard consume(.rightParen) else {
+                    throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                }
+            }
+
+            let layoutModifiers = try parseContainerLayout(
+                nodeName: nodeName,
+                arguments: arguments
+            )
+
             guard consume(.leftBrace) else {
                 throw SwiftUIPreviewParseError.malformedNode(nodeName)
             }
@@ -364,25 +434,134 @@ private struct SwiftUIPreviewSourceParser {
             var nestedUnknownBraceDepth = 0
 
             while index < tokens.count {
-                if tokens[index] == .rightBrace, nestedUnknownBraceDepth == 0 {
+                if tokens[index] == .rightBrace,
+                   nestedUnknownBraceDepth == 0 {
                     index += 1
-                    return children
+                    return ParsedContainer(
+                        children: children,
+                        layoutModifiers: layoutModifiers
+                    )
                 }
 
-                if case .identifier(let name) = tokens[index], Self.isSupportedNode(name) {
+                if case .identifier(let name) = tokens[index],
+                   Self.isSupportedNode(name) {
                     children.append(try parseNode())
                     continue
                 }
 
                 if tokens[index] == .leftBrace {
                     nestedUnknownBraceDepth += 1
-                } else if tokens[index] == .rightBrace, nestedUnknownBraceDepth > 0 {
+                } else if tokens[index] == .rightBrace,
+                          nestedUnknownBraceDepth > 0 {
                     nestedUnknownBraceDepth -= 1
                 }
+
                 index += 1
             }
 
             throw SwiftUIPreviewParseError.malformedNode(nodeName)
+        }
+
+        func parseContainerLayout(
+            nodeName: String,
+            arguments: [SwiftUIPreviewToken]
+        ) throws -> [PreviewModifier] {
+            guard nodeName == "VStack" ||
+                    nodeName == "HStack" ||
+                    nodeName == "ZStack" else {
+                return []
+            }
+
+            var modifiers: [PreviewModifier] = []
+            var argumentIndex = 0
+
+            while argumentIndex < arguments.count {
+                guard case .identifier(let label) = arguments[argumentIndex],
+                      argumentIndex + 1 < arguments.count,
+                      arguments[argumentIndex + 1] == .colon else {
+                    argumentIndex += 1
+                    continue
+                }
+
+                argumentIndex += 2
+                guard argumentIndex < arguments.count else {
+                    throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                }
+
+                switch label {
+                case "spacing":
+                    guard case .number(let value) = arguments[argumentIndex] else {
+                        throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                    }
+                    modifiers.append(.stackSpacing(value))
+
+                case "alignment":
+                    guard let alignmentName = dotIdentifier(
+                        arguments,
+                        at: &argumentIndex
+                    ) else {
+                        throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                    }
+
+                    switch nodeName {
+                    case "VStack":
+                        guard let alignment = PreviewHorizontalAlignment(
+                            rawValue: alignmentName
+                        ) else {
+                            throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                        }
+                        modifiers.append(.horizontalAlignment(alignment))
+
+                    case "HStack":
+                        guard let alignment = PreviewVerticalAlignment(
+                            rawValue: alignmentName
+                        ) else {
+                            throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                        }
+                        modifiers.append(.verticalAlignment(alignment))
+
+                    case "ZStack":
+                        guard let alignment = PreviewAlignment(
+                            rawValue: alignmentName
+                        ) else {
+                            throw SwiftUIPreviewParseError.malformedLayout(nodeName)
+                        }
+                        modifiers.append(.zStackAlignment(alignment))
+
+                    default:
+                        break
+                    }
+
+                default:
+                    break
+                }
+
+                argumentIndex += 1
+            }
+
+            return modifiers
+        }
+
+        func dotIdentifier(
+            _ arguments: [SwiftUIPreviewToken],
+            at index: inout Int
+        ) -> String? {
+            guard index < arguments.count else {
+                return nil
+            }
+
+            if arguments[index] == .dot,
+               index + 1 < arguments.count,
+               case .identifier(let value) = arguments[index + 1] {
+                index += 1
+                return value
+            }
+
+            if case .identifier(let value) = arguments[index] {
+                return value
+            }
+
+            return nil
         }
 
         mutating func collectArgumentsUntilRightParen() -> [SwiftUIPreviewToken] {
@@ -398,6 +577,7 @@ private struct SwiftUIPreviewSourceParser {
                     }
                     nestedDepth -= 1
                 }
+
                 result.append(tokens[index])
                 index += 1
             }
@@ -439,36 +619,55 @@ private struct SwiftUIPreviewSourceParser {
             var height: Double?
             var maxWidth: PreviewDimension?
             var maxHeight: PreviewDimension?
-            var index = 0
+            var argumentIndex = 0
 
-            while index < arguments.count {
-                guard case .identifier(let label) = arguments[index],
-                      index + 1 < arguments.count,
-                      arguments[index + 1] == .colon else {
-                    index += 1
+            while argumentIndex < arguments.count {
+                guard case .identifier(let label) = arguments[argumentIndex],
+                      argumentIndex + 1 < arguments.count,
+                      arguments[argumentIndex + 1] == .colon else {
+                    argumentIndex += 1
                     continue
                 }
 
-                index += 2
-                guard index < arguments.count else { break }
+                argumentIndex += 2
+                guard argumentIndex < arguments.count else {
+                    break
+                }
 
                 switch label {
                 case "width":
-                    if case .number(let value) = arguments[index] { width = value }
+                    if case .number(let value) = arguments[argumentIndex] {
+                        width = value
+                    }
+
                 case "height":
-                    if case .number(let value) = arguments[index] { height = value }
+                    if case .number(let value) = arguments[argumentIndex] {
+                        height = value
+                    }
+
                 case "maxWidth":
-                    maxWidth = parseDimension(arguments, at: &index)
+                    maxWidth = parseDimension(
+                        arguments,
+                        at: &argumentIndex
+                    )
+
                 case "maxHeight":
-                    maxHeight = parseDimension(arguments, at: &index)
+                    maxHeight = parseDimension(
+                        arguments,
+                        at: &argumentIndex
+                    )
+
                 default:
                     break
                 }
 
-                index += 1
+                argumentIndex += 1
             }
 
-            guard width != nil || height != nil || maxWidth != nil || maxHeight != nil else {
+            guard width != nil ||
+                    height != nil ||
+                    maxWidth != nil ||
+                    maxHeight != nil else {
                 throw SwiftUIPreviewParseError.malformedModifier("frame")
             }
 
@@ -484,7 +683,9 @@ private struct SwiftUIPreviewSourceParser {
             _ arguments: [SwiftUIPreviewToken],
             at index: inout Int
         ) -> PreviewDimension? {
-            guard index < arguments.count else { return nil }
+            guard index < arguments.count else {
+                return nil
+            }
 
             if case .number(let value) = arguments[index] {
                 return .points(value)
@@ -498,7 +699,8 @@ private struct SwiftUIPreviewSourceParser {
                 return .infinity
             }
 
-            if case .identifier(let name) = arguments[index], name == "infinity" {
+            if case .identifier(let name) = arguments[index],
+               name == "infinity" {
                 return .infinity
             }
 
@@ -506,45 +708,85 @@ private struct SwiftUIPreviewSourceParser {
         }
 
         mutating func skipParenthesizedArgumentsIfPresent() {
-            guard index < tokens.count, tokens[index] == .leftParen else { return }
+            guard index < tokens.count,
+                  tokens[index] == .leftParen else {
+                return
+            }
+
             var depth = 0
+
             while index < tokens.count {
-                if tokens[index] == .leftParen { depth += 1 }
+                if tokens[index] == .leftParen {
+                    depth += 1
+                }
+
                 if tokens[index] == .rightParen {
                     depth -= 1
                     index += 1
-                    if depth == 0 { return }
+
+                    if depth == 0 {
+                        return
+                    }
+
                     continue
                 }
+
                 index += 1
             }
         }
 
         mutating func skipClosureIfPresent() {
-            guard index < tokens.count, tokens[index] == .leftBrace else { return }
+            guard index < tokens.count,
+                  tokens[index] == .leftBrace else {
+                return
+            }
+
             var depth = 0
+
             while index < tokens.count {
-                if tokens[index] == .leftBrace { depth += 1 }
+                if tokens[index] == .leftBrace {
+                    depth += 1
+                }
+
                 if tokens[index] == .rightBrace {
                     depth -= 1
                     index += 1
-                    if depth == 0 { return }
+
+                    if depth == 0 {
+                        return
+                    }
+
                     continue
                 }
+
                 index += 1
             }
         }
 
         mutating func consume(_ token: SwiftUIPreviewToken) -> Bool {
-            guard index < tokens.count, tokens[index] == token else { return false }
+            guard index < tokens.count,
+                  tokens[index] == token else {
+                return false
+            }
+
             index += 1
             return true
         }
 
         static func isSupportedNode(_ name: String) -> Bool {
             switch name {
-            case "Text", "Button", "Image", "Spacer", "VStack", "HStack", "ZStack", "ScrollView", "List", "NavigationStack":
+            case "Text",
+                 "Button",
+                 "Image",
+                 "Spacer",
+                 "VStack",
+                 "HStack",
+                 "ZStack",
+                 "ScrollView",
+                 "List",
+                 "NavigationStack":
                 return true
+
             default:
                 return false
             }
@@ -552,8 +794,14 @@ private struct SwiftUIPreviewSourceParser {
 
         static func isSupportedModifier(_ name: String) -> Bool {
             switch name {
-            case "padding", "frame", "foregroundStyle", "background", "font", "cornerRadius":
+            case "padding",
+                 "frame",
+                 "foregroundStyle",
+                 "background",
+                 "font",
+                 "cornerRadius":
                 return true
+
             default:
                 return false
             }
