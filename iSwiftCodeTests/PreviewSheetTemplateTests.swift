@@ -97,7 +97,8 @@ final class PreviewSheetTemplateTests: XCTestCase {
                 "count",
                 "name",
                 "enabled",
-                "showingInfo"
+                "showingInfo",
+                "showingFullScreen"
             ]
         )
     }
