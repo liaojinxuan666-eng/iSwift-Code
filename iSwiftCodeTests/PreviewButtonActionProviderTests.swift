@@ -223,7 +223,7 @@ final class PreviewButtonActionProviderTests: XCTestCase {
                     count += 1
                 }
 
-                Text("Count: \(count)")
+                Text("Count: \\(count)")
             }
             """
         )
