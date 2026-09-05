@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WorkspaceView: View {
-    @StateObject private var model = ProjectSessionViewModel()
+    @StateObject private var model: ProjectSessionViewModel
 
     @State private var isCreatingFile = false
     @State private var newFilePath = ""
@@ -9,161 +9,205 @@ struct WorkspaceView: View {
     @State private var fileBeingRenamed: WorkspacePath?
     @State private var renameDestination = ""
 
+    init() {
+        _model = StateObject(
+            wrappedValue: ProjectSessionViewModel()
+        )
+    }
+
+    init(model: ProjectSessionViewModel) {
+        _model = StateObject(wrappedValue: model)
+    }
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    compilerStatus
-                    fileStrip
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                compilerStatus
+                fileStrip
 
-                    HStack(spacing: 8) {
-                        Image(systemName: fileIcon(for: model.activeFilePath))
+                HStack(spacing: 8) {
+                    Image(systemName: fileIcon(for: model.activeFilePath))
+                        .foregroundStyle(.secondary)
+
+                    Text(model.activeFilePath?.value ?? "No file selected")
+                        .font(.caption.monospaced())
+                        .lineLimit(1)
+
+                    if model.activeFilePath == model.entryFilePath {
+                        Label("Entry", systemImage: "flag.fill")
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
-
-                        Text(model.activeFilePath?.value ?? "No file selected")
-                            .font(.caption.monospaced())
-                            .lineLimit(1)
-
-                        if model.activeFilePath == model.entryFilePath {
-                            Label("Entry", systemImage: "flag.fill")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if model.isActiveFileDirty {
-                            Text("Modified")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(.orange)
-                        }
-
-                        Spacer()
-
-                        Button("Save") {
-                            perform {
-                                try model.saveActiveFile()
-                            }
-                        }
-                        .font(.caption.weight(.semibold))
-                        .disabled(model.activeFilePath == nil || !model.isActiveFileDirty)
                     }
 
-                    CodeEditorView(source: $model.source)
-                        .frame(minHeight: 360)
-                        .disabled(model.activeFilePath == nil)
+                    if model.isActiveFileDirty {
+                        Text("Modified")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.orange)
+                    }
 
-                    ConsoleView(
-                        output: model.consoleOutput,
-                        diagnostics: model.diagnostics,
-                        summary: model.buildSummary
+                    Spacer()
+
+                    Button("Save") {
+                        perform {
+                            try model.saveActiveFile()
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .disabled(
+                        model.activeFilePath == nil ||
+                        !model.isActiveFileDirty
                     )
                 }
-                .padding()
-            }
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle(model.projectName)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button("New File", systemImage: "doc.badge.plus") {
-                            newFilePath = ""
-                            isCreatingFile = true
-                        }
 
-                        Button("Save All", systemImage: "square.and.arrow.down") {
-                            perform {
-                                try model.saveAll()
-                            }
-                        }
-                        .disabled(model.dirtyFilePaths.isEmpty)
+                CodeEditorView(source: $model.source)
+                    .frame(minHeight: 360)
+                    .disabled(model.activeFilePath == nil)
 
-                        Divider()
-
-                        Button("Restore Example", systemImage: "arrow.counterclockwise") {
-                            model.restoreExample()
-                        }
-                        .disabled(model.entryFilePath == nil)
-
-                        Button("IPA Export — Phase 2", systemImage: "shippingbox", action: {})
-                            .disabled(true)
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: model.run) {
-                        Label(
-                            model.isRunning ? "Running" : "Run",
-                            systemImage: "play.fill"
-                        )
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(model.isRunning || model.activeFilePath == nil)
-                }
-            }
-            .alert("Create File", isPresented: $isCreatingFile) {
-                TextField("Sources/Helper.swift", text: $newFilePath)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Cancel", role: .cancel) {}
-
-                Button("Create") {
-                    perform {
-                        let path = try WorkspacePath(newFilePath)
-                        try model.createFile(at: path)
-                    }
-                }
-            } message: {
-                Text("Enter a project-relative path.")
-            }
-            .alert(
-                "Rename File",
-                isPresented: Binding(
-                    get: { fileBeingRenamed != nil },
-                    set: { presented in
-                        if !presented {
-                            fileBeingRenamed = nil
-                        }
-                    }
+                ConsoleView(
+                    output: model.consoleOutput,
+                    diagnostics: model.diagnostics,
+                    summary: model.buildSummary
                 )
-            ) {
-                TextField("New path", text: $renameDestination)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-
-                Button("Cancel", role: .cancel) {
-                    fileBeingRenamed = nil
-                }
-
-                Button("Rename") {
-                    guard let source = fileBeingRenamed else { return }
-                    perform {
-                        let destination = try WorkspacePath(renameDestination)
-                        try model.renameFile(from: source, to: destination)
-                    }
-                    fileBeingRenamed = nil
-                }
-            } message: {
-                Text("Entry-file metadata is updated automatically when the entry file is renamed.")
             }
-            .alert(
-                "Project Error",
-                isPresented: Binding(
-                    get: { model.errorMessage != nil },
-                    set: { presented in
-                        if !presented {
-                            model.clearError()
+            .padding()
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle(model.projectName)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Button("New File", systemImage: "doc.badge.plus") {
+                        newFilePath = ""
+                        isCreatingFile = true
+                    }
+
+                    Button("Save All", systemImage: "square.and.arrow.down") {
+                        perform {
+                            try model.saveAll()
                         }
                     }
-                )
-            ) {
-                Button("OK", role: .cancel) {
-                    model.clearError()
+                    .disabled(model.dirtyFilePaths.isEmpty)
+
+                    Divider()
+
+                    Button(
+                        "Restore Example",
+                        systemImage: "arrow.counterclockwise"
+                    ) {
+                        model.restoreExample()
+                    }
+                    .disabled(model.entryFilePath == nil)
+
+                    Button(
+                        "App Preview — 0.1.3",
+                        systemImage: "iphone"
+                    ) {}
+                    .disabled(true)
+
+                    Button(
+                        "IPA Export — Phase 2",
+                        systemImage: "shippingbox"
+                    ) {}
+                    .disabled(true)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
-            } message: {
-                Text(model.errorMessage ?? "")
             }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: model.run) {
+                    Label(
+                        model.isRunning ? "Running" : "Run",
+                        systemImage: "play.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    model.isRunning ||
+                    model.activeFilePath == nil
+                )
+            }
+        }
+        .alert("Create File", isPresented: $isCreatingFile) {
+            TextField(
+                "Sources/Helper.swift",
+                text: $newFilePath
+            )
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+
+            Button("Cancel", role: .cancel) {}
+
+            Button("Create") {
+                perform {
+                    let path = try WorkspacePath(newFilePath)
+                    try model.createFile(at: path)
+                }
+            }
+        } message: {
+            Text("Enter a project-relative path.")
+        }
+        .alert(
+            "Rename File",
+            isPresented: Binding(
+                get: { fileBeingRenamed != nil },
+                set: { presented in
+                    if !presented {
+                        fileBeingRenamed = nil
+                    }
+                }
+            )
+        ) {
+            TextField(
+                "New path",
+                text: $renameDestination
+            )
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+
+            Button("Cancel", role: .cancel) {
+                fileBeingRenamed = nil
+            }
+
+            Button("Rename") {
+                guard let source = fileBeingRenamed else {
+                    return
+                }
+
+                perform {
+                    let destination = try WorkspacePath(
+                        renameDestination
+                    )
+                    try model.renameFile(
+                        from: source,
+                        to: destination
+                    )
+                }
+
+                fileBeingRenamed = nil
+            }
+        } message: {
+            Text(
+                "Entry-file metadata is updated automatically when the entry file is renamed."
+            )
+        }
+        .alert(
+            "Project Error",
+            isPresented: Binding(
+                get: { model.errorMessage != nil },
+                set: { presented in
+                    if !presented {
+                        model.clearError()
+                    }
+                }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                model.clearError()
+            }
+        } message: {
+            Text(model.errorMessage ?? "")
         }
     }
 
@@ -198,21 +242,35 @@ struct WorkspaceView: View {
                         .padding(.vertical, 7)
                     }
                     .buttonStyle(.bordered)
-                    .tint(model.activeFilePath == path ? .accentColor : .secondary)
+                    .tint(
+                        model.activeFilePath == path
+                        ? .accentColor
+                        : .secondary
+                    )
                     .contextMenu {
-                        Button("Set as Entry", systemImage: "flag") {
+                        Button(
+                            "Set as Entry",
+                            systemImage: "flag"
+                        ) {
                             perform {
                                 try model.setEntryFile(path)
                             }
                         }
                         .disabled(path == model.entryFilePath)
 
-                        Button("Rename", systemImage: "pencil") {
+                        Button(
+                            "Rename",
+                            systemImage: "pencil"
+                        ) {
                             fileBeingRenamed = path
                             renameDestination = path.value
                         }
 
-                        Button("Delete", systemImage: "trash", role: .destructive) {
+                        Button(
+                            "Delete",
+                            systemImage: "trash",
+                            role: .destructive
+                        ) {
                             perform {
                                 try model.deleteFile(at: path)
                             }
@@ -243,14 +301,18 @@ struct WorkspaceView: View {
                     .font(.subheadline.weight(.semibold))
 
                 if let entryFilePath = model.entryFilePath {
-                    Text("\(model.files.count) file(s) • Entry: \(entryFilePath.value)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    Text(
+                        "\(model.files.count) file(s) • Entry: \(entryFilePath.value)"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 } else {
-                    Text("\(model.files.count) file(s) • No entry file")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        "\(model.files.count) file(s) • No entry file"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
 
@@ -262,11 +324,20 @@ struct WorkspaceView: View {
         }
         .padding(12)
         .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: 14,
+                style: .continuous
+            )
+        )
     }
 
-    private func fileIcon(for path: WorkspacePath?) -> String {
-        guard let path else { return "doc" }
+    private func fileIcon(
+        for path: WorkspacePath?
+    ) -> String {
+        guard let path else {
+            return "doc"
+        }
 
         switch path.pathExtension.lowercased() {
         case "swift":
@@ -282,7 +353,9 @@ struct WorkspaceView: View {
         }
     }
 
-    private func perform(_ operation: () throws -> Void) {
+    private func perform(
+        _ operation: () throws -> Void
+    ) {
         do {
             try operation()
         } catch {
@@ -292,5 +365,7 @@ struct WorkspaceView: View {
 }
 
 #Preview {
-    WorkspaceView()
+    NavigationStack {
+        WorkspaceView()
+    }
 }

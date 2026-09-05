@@ -4,7 +4,7 @@ import SwiftUI
 struct iSwiftCodeApp: App {
     var body: some Scene {
         WindowGroup {
-            WorkspaceView()
+            ProjectBrowserView()
         }
     }
 }
