@@ -608,6 +608,27 @@ private struct PreviewNodeView: View {
                 }
             )
 
+        case .fullScreenCoverWithOnDismiss(
+            let reference,
+            let program,
+            let content
+        ):
+            return AnyView(
+                view.fullScreenCover(
+                    isPresented: boolBinding(
+                        for: reference.stateName
+                    ),
+                    onDismiss: {
+                        _ = stateStore.perform(program)
+                    }
+                ) {
+                    PreviewNodeView(
+                        node: content,
+                        stateStore: stateStore
+                    )
+                }
+            )
+
         case .stackSpacing,
              .horizontalAlignment,
              .verticalAlignment,

@@ -14,7 +14,7 @@ final class PreviewSessionViewModel: ObservableObject {
 
     init(
         provider: any PreviewProvider =
-            SwiftUIFullScreenCoverPreviewProvider()
+            SwiftUIFullScreenCoverOnDismissPreviewProvider()
     ) {
         self.provider = provider
     }

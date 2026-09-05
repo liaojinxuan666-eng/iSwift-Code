@@ -154,6 +154,16 @@ enum PreviewModifier: Equatable, Sendable {
         content: PreviewNode
     )
 
+    /// Full-screen presentation with a constrained dismissal action.
+    ///
+    /// As with sheetWithOnDismiss, the runtime receives portable actions rather
+    /// than an executable source closure.
+    case fullScreenCoverWithOnDismiss(
+        isPresented: PreviewBindingReference,
+        onDismiss: PreviewActionProgram,
+        content: PreviewNode
+    )
+
     case stackSpacing(Double)
     case horizontalAlignment(PreviewHorizontalAlignment)
     case verticalAlignment(PreviewVerticalAlignment)
