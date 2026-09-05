@@ -553,6 +553,23 @@ private struct PreviewNodeView: View {
                 view.navigationTitle(title)
             )
 
+        case .sheet(
+            let reference,
+            let content
+        ):
+            return AnyView(
+                view.sheet(
+                    isPresented: boolBinding(
+                        for: reference.stateName
+                    )
+                ) {
+                    PreviewNodeView(
+                        node: content,
+                        stateStore: stateStore
+                    )
+                }
+            )
+
         case .stackSpacing,
              .horizontalAlignment,
              .verticalAlignment,

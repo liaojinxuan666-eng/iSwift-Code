@@ -133,6 +133,10 @@ enum PreviewModifier: Equatable, Sendable {
     case font(PreviewFont)
     case cornerRadius(Double)
     case navigationTitle(String)
+    case sheet(
+        isPresented: PreviewBindingReference,
+        content: PreviewNode
+    )
 
     case stackSpacing(Double)
     case horizontalAlignment(PreviewHorizontalAlignment)

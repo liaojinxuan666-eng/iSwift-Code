@@ -6,74 +6,91 @@ App Preview keeps three separate product paths:
 
 `Run Code | Preview App | Build IPA`
 
-## Completed
+## Completed before this batch
 
 - portable Preview IR and signed native runtime
 - Live Preview
 - primitive `@State`
 - TextField / Toggle / Picker bindings
 - constrained Button action runtime
-- NavigationStack + NavigationLink
+- NavigationStack / NavigationLink
+- labeled and nested NavigationLink forms
 - navigationTitle
-- multi-page template
-- nested NavigationLink destinations
 
-## NavigationLink labeled initializer — current batch
+## Sheet presentation — current batch
 
-The navigation provider now supports both:
+The Preview IR now carries a portable presentation modifier:
+
+```text
+PreviewModifier.sheet
+├─ isPresented: PreviewBindingReference
+└─ content: PreviewNode
+```
+
+Supported first form:
 
 ```swift
-NavigationLink("Details") {
-    Text("Destination")
+@State private var showingDetails = false
+
+Button("Show") {
+    showingDetails = true
+}
+.sheet(isPresented: $showingDetails) {
+    VStack {
+        Text("Details")
+
+        Button("Close") {
+            showingDetails = false
+        }
+    }
 }
 ```
 
-and:
+Pipeline:
 
-```swift
-NavigationLink(
-    destination: {
-        Text("Destination")
-    },
-    label: {
-        Text("Open")
-    }
-)
+```text
+.sheet(isPresented: $state) source
+        ↓
+SwiftUISheetPreviewProvider
+        ↓
+validated Bool state binding
+        ↓
+portable PreviewModifier.sheet
+        ↓
+signed Preview Runtime
+        ↓
+native SwiftUI sheet
 ```
 
-Both lower to the same portable `PreviewNode.navigationLink` and therefore use
-the same signed native runtime path.
+Sheet content is parsed through the same safe preview stack and shares the same
+PreviewStateStore at runtime. It can therefore use state-backed Text, controls,
+Picker, actionable Buttons, navigation, and even another supported sheet.
 
-The destination still goes through recursive preview parsing, so state-backed
-content, interactive controls, actionable Buttons, navigation titles, and
-nested NavigationLinks continue to work.
+Unknown state references and non-Bool `isPresented` bindings produce preview
+diagnostics.
 
-For this first labeled-initializer pass, `label:` intentionally accepts a
-literal `Text("...")` label only. This preserves the current portable IR, whose
-NavigationLink label is represented as a string title, and avoids silently
-dropping arbitrary custom label UI.
+## Current limitation
 
-## Navigation layer after this batch
+This first presentation pass supports exactly:
 
-The core navigation path now covers:
+```swift
+.sheet(isPresented: $state) { ... }
+```
 
-- NavigationStack
-- literal-title NavigationLink
-- closure-based destination/label initializer
-- nested destinations
-- navigationTitle
-- shared preview state across destinations
+`onDismiss:`, `.sheet(item:)`, custom detents, popovers, and fullScreenCover are
+reserved for later presentation passes.
 
 ## Next preview layers
 
-1. sheet presentation state
-2. full custom NavigationLink label IR
-3. animation and transitions
-4. richer control styles
-5. iPad side-by-side editor/preview layout
+1. default template sheet demo integration
+2. `.sheet(onDismiss:)` support
+3. `.fullScreenCover(isPresented:)`
+4. animation / transitions
+5. richer control styles
+6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Navigation source remains lowered to portable IR. Destination closures are
-parsed rather than executed, and unsupported custom labels are rejected instead
-of being executed or silently approximated.
+Presentation source is lowered to portable IR and validated state references.
+The generic project/workspace/plugin core never executes arbitrary presentation
+closures or depends directly on SwiftUI sheet APIs.
