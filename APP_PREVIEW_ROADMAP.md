@@ -14,57 +14,63 @@ App Preview keeps three separate product paths:
 - inline Live Preview with debounced refresh
 - portable primitive `@State` definitions
 - state-backed and interpolated Text
+- binding-backed `TextField` and `Toggle`
+- `Picker` and selection bindings
 
-## Binding + interactive controls — current batch
+## Button actions — current batch
 
-Preview IR now has a portable `PreviewBindingReference`.
+App Preview now has the foundation for a constrained `PreviewAction` IR.
 
-The built-in SwiftUI Preview Provider recognizes:
+The action layer deliberately does **not** execute arbitrary Swift closures.
+Providers will lower a small, portable set of state mutations into:
+
+- `set(stateName:value:)`
+- `add(stateName:amount:)`
+- `toggle(stateName:)`
+
+Multiple mutations are carried by a `PreviewActionProgram`.
+
+`PreviewActionValidator` checks every target against the preview's existing
+`@State` definitions before execution. Unknown states and incompatible action
+types are rejected instead of silently creating or coercing state.
+
+`PreviewStateStore.perform(_:)` performs a complete compatibility preflight
+before applying the program, so an invalid program cannot partially mutate
+preview state.
+
+The next Button batch will connect source such as:
 
 ```swift
-@State private var name = "Guest"
-@State private var enabled = true
+@State private var count = 0
+@State private var enabled = false
 
-TextField("Name", text: $name)
-Toggle("Enabled", isOn: $enabled)
+Button("Add") {
+    count += 1
+}
+
+Button("Toggle") {
+    enabled.toggle()
+}
 ```
 
-The provider emits binding references by state name. It does not emit or expose
-SwiftUI's native `Binding` type.
-
-The signed Preview Runtime converts those references into native bindings backed
-by `PreviewStateStore`:
-
-```text
-TextField / Toggle
-        ↓
-PreviewBindingReference
-        ↓
-PreviewStateStore
-        ↓
-Native SwiftUI Binding
-        ↓
-Interactive preview state
-```
-
-This makes the preview genuinely interactive: typing into a TextField or
-changing a Toggle mutates runtime preview state, and state-backed/interpolated
-Text can update from the same store without rebuilding or reinstalling an IPA.
-
-Unknown binding targets produce Preview diagnostics instead of silently creating
-new state.
+to this action IR and then wire the signed Preview Runtime button tap to
+`PreviewStateStore`.
 
 ## Next preview layers
 
-1. `Picker` and selection bindings
-2. Button actions with a constrained Preview Action IR
-3. navigation destinations and sheets
-4. animation/transitions
-5. richer TextField/Toggle styles
-6. iPad side-by-side editor/preview layout
+1. Button source lowering + runtime action execution
+2. navigation destinations and sheets
+3. animation/transitions
+4. richer TextField/Toggle/Picker styles
+5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Native SwiftUI `Binding` remains inside the signed runtime. ProjectStore,
-ProjectWorkspace, ProjectSession, Live Preview scheduling, and the generic
-plugin/provider layer remain independent from SwiftUI-specific state machinery.
+Native SwiftUI `Binding` and executable UI behavior remain inside the signed
+runtime. ProjectStore, ProjectWorkspace, ProjectSession, Live Preview
+scheduling, and the generic plugin/provider layer remain independent from
+SwiftUI-specific state machinery.
+
+Button source closures are never executed directly by App Preview. Only
+validated, explicitly supported `PreviewAction` operations may reach the
+runtime state store.
