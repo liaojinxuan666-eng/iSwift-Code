@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Identifiable runtime bridge used when portable optional primitive state
+/// drives SwiftUI's native `.sheet(item:)` overload.
+private struct PreviewPresentedItem: Identifiable {
+    let id: String
+    let value: PreviewStateValue
+}
+
 struct PreviewRuntimeView: View {
     let document: PreviewDocument
 
@@ -445,6 +452,51 @@ private struct PreviewNodeView: View {
         )
     }
 
+    private func optionalItemBinding(
+        for stateName: String
+    ) -> Binding<PreviewPresentedItem?> {
+        Binding(
+            get: {
+                guard let value =
+                    stateStore.optionalItemValue(
+                        for: stateName
+                    ) else {
+                    return nil
+                }
+
+                return PreviewPresentedItem(
+                    id: stateName,
+                    value: value
+                )
+            },
+            set: { item in
+                // SwiftUI writes nil when an item-driven sheet is dismissed.
+                // The source item value itself remains owned by PreviewStateStore.
+                if item == nil {
+                    stateStore.clearOptionalValue(
+                        for: stateName
+                    )
+                }
+            }
+        )
+    }
+
+    private func isOptionalItemState(
+        _ stateName: String
+    ) -> Bool {
+        switch stateStore.value(
+            for: stateName
+        ) {
+        case .optionalString,
+             .optionalBool,
+             .optionalNumber:
+            return true
+
+        default:
+            return false
+        }
+    }
+
     private func selectionBinding(
         for stateName: String
     ) -> Binding<PreviewStateValue> {
@@ -557,6 +609,23 @@ private struct PreviewNodeView: View {
             let reference,
             let content
         ):
+            if isOptionalItemState(
+                reference.stateName
+            ) {
+                return AnyView(
+                    view.sheet(
+                        item: optionalItemBinding(
+                            for: reference.stateName
+                        )
+                    ) { _ in
+                        PreviewNodeView(
+                            node: content,
+                            stateStore: stateStore
+                        )
+                    }
+                )
+            }
+
             return AnyView(
                 view.sheet(
                     isPresented: boolBinding(

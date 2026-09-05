@@ -74,13 +74,10 @@ The built-in SwiftUI Preview template now exercises this path directly. Closing
 the default Full Screen demo changes the shared `status` state to
 `"Full Screen Closed"`.
 
-## Optional item-state foundation — current batch
+## Optional item-state foundation — completed
 
-Before `.sheet(item:)` can be lowered safely, App Preview needs a typed optional
-state model that preserves the wrapped primitive kind while the current value
-is nil.
-
-This batch adds portable optional primitive state:
+App Preview now preserves typed optional primitive state while the current value
+is nil:
 
 ```swift
 @State private var selectedItem: String? = nil
@@ -96,26 +93,66 @@ optionalBool(Bool?)
 optionalNumber(Double?)
 ```
 
-The constrained action layer also gains a portable `clear` action so source
-such as:
+The constrained action layer also supports `clear`, so setting an optional item
+to `nil` remains a portable state mutation.
+
+## Sheet item presentation — current batch
+
+The first item-driven presentation pass accepts:
 
 ```swift
-selectedItem = "Details"
-selectedItem = nil
+@State private var selectedItem: String? = nil
+
+Button("Open") {
+    selectedItem = "Details"
+}
+.sheet(item: $selectedItem) { item in
+    VStack {
+        Text(item)
+
+        Button("Close") {
+            selectedItem = nil
+        }
+    }
+}
 ```
 
-can safely open and dismiss a future item-driven presentation without executing
-arbitrary Swift.
+Provider pipeline:
 
-For this first foundation pass, typed optional primitive state is recognized
-when its initializer is `nil`. Non-primitive item models remain a later
+```text
+.sheet(item:) source
+        ↓
+SwiftUISheetItemPreviewProvider
+        ↓
+validate typed optional primitive @State
+        ↓
+rebind closure item parameter to portable state
+        ↓
+existing PreviewModifier.sheet IR
+        ↓
+signed Preview Runtime
+        ↓
+native SwiftUI .sheet(item:) bridge
+```
+
+The runtime uses an internal Identifiable presentation token only as the native
+SwiftUI bridge. User source closures are still not executed. The sheet content
+reads the same `PreviewStateStore`, and native dismissal clears the optional
+state back to nil.
+
+Current content support includes direct item text (`Text(item)`), simple item
+interpolation, the existing safe controls/actions, navigation, and nested
+presentations.
+
+This first pass remains intentionally limited to typed optional primitive state
+initialized to nil. Rich Identifiable source models remain a later item-model IR
 extension.
 
 ## Next preview layers
 
-1. `.sheet(item:)` for optional primitive item state
-2. `.fullScreenCover(item:)`
-3. richer item-model IR
+1. `.fullScreenCover(item:)`
+2. richer item-model IR
+3. item-presentation `onDismiss`
 4. animation / transitions
 5. richer control styles
 6. iPad side-by-side editor/preview layout
