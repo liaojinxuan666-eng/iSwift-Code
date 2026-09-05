@@ -19,12 +19,29 @@ extension PluginHostContextError: LocalizedError {
     }
 }
 
-/// The only host information a plugin receives during activation in the first
-/// plugin API version. Host services will be added behind permission-checked
-/// interfaces instead of exposing app internals directly.
+/// Host context issued by iSwift Code when a plugin is activated.
+///
+/// Plugins receive only their effective granted permissions and a
+/// permission-checked host-service facade. They never receive the raw backend
+/// implementations used by the app.
 struct PluginHostContext: Sendable {
     let pluginIdentifier: String
     let grantedPermissions: Set<PluginPermission>
+    let services: PluginHostServices
+
+    init(
+        pluginIdentifier: String,
+        grantedPermissions: Set<PluginPermission>,
+        serviceBackends: PluginHostServiceBackends = .empty
+    ) {
+        self.pluginIdentifier = pluginIdentifier
+        self.grantedPermissions = grantedPermissions
+        services = PluginHostServices(
+            pluginIdentifier: pluginIdentifier,
+            grantedPermissions: grantedPermissions,
+            backends: serviceBackends
+        )
+    }
 
     func hasPermission(_ permission: PluginPermission) -> Bool {
         grantedPermissions.contains(permission)

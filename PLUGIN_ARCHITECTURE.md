@@ -20,6 +20,10 @@ Every plugin must declare:
 
 The host registry validates those declarations before the plugin can activate.
 
+The architecture is provider-agnostic, toolchain-agnostic, and app-agnostic.
+Clang, Codex-like services, the sandbox Swift compiler, and future providers are
+implementations of common contracts; none of them define the plugin core.
+
 ## Capability model
 
 The initial capability vocabulary is:
@@ -51,28 +55,14 @@ Examples:
 Compiler plugins are discovered through `CompilerProvider` rather than by
 hard-coding a concrete compiler class into the editor.
 
-The request model carries:
+The request model already supports multiple logical source files, languages,
+entry-file selection, arguments, normalized diagnostics, artifacts, and
+provider metrics.
 
-- operation: `check`, `compile`, or `run`
-- one or more logical source files
-- source language
-- optional entry file
-- optional command-line arguments
-
-The result model carries:
-
-- normalized diagnostics
-- console output
-- optional build artifacts
-- provider metrics
-
-The current `SandboxSwiftCompiler` remains the low-level engine, while
-`SandboxSwiftCompilerProvider` is the first built-in compiler plugin and is now
-the default compiler used by `EditorViewModel`.
-
-The sandbox provider intentionally accepts only one Swift source file today.
-The provider contract itself already supports multiple files so the later
-project system and Clang/LLVM provider do not require another API redesign.
+The current `SandboxSwiftCompilerProvider` is only the first built-in
+implementation. It intentionally supports one Swift file today while the
+provider contract stays broad enough for later Clang/LLVM and Swift/Wasm
+providers.
 
 ### AIProvider
 
@@ -86,22 +76,57 @@ The initial task vocabulary includes:
 - edit workspace
 - review workspace
 
-AI responses may include proposed file edits. Applying those edits remains a
-host responsibility; an AI provider does not gain implicit write access simply
-because it returned edits.
+AI responses may propose file edits, but returning an edit does not grant the AI
+provider permission to apply it. Applying edits remains a host-controlled
+operation.
 
-A future Codex integration belongs here as a `remoteService` plugin. It will
-request `network`, and only request workspace/credential permissions needed by
-the selected feature.
+A future Codex-like integration belongs here as a `remoteService` provider, not
+as a special case in the plugin core.
 
 ### WasmPluginLoader
 
-`WasmPluginLoader` is now a reserved host boundary for third-party executable
-plugins. 0.1.2 defines the package and resource-limit contracts but deliberately
-does not ship a WebAssembly runtime yet.
+`WasmPluginLoader` is the reserved execution boundary for third-party
+executable plugins. The package and resource-limit contracts exist before a
+specific WebAssembly runtime is selected.
 
-This keeps Wasm execution replaceable while preserving the plugin manifest,
-permissions, lifecycle, and provider APIs.
+## Host Services
+
+0.1.2 now has a typed Host Services boundary.
+
+A plugin never receives raw workspace, network, credential, clipboard, build,
+document-picker, or external-URL implementations. During activation it receives
+a `PluginHostContext`, which exposes a permission-checked `PluginHostServices`
+facade.
+
+Host services currently define backend contracts for:
+
+- workspace listing, read, write, delete, and move
+- network requests
+- credential read/write/remove
+- clipboard read/write
+- user-file import/export
+- build-artifact list/read/write
+- opening external URLs
+
+The app supplies the actual backend implementations. This separation allows the
+same plugin API to work with a future project system, different credential
+stores, different network implementations, and test doubles without exposing
+app internals.
+
+Permission checks happen twice:
+
+1. activation rejects a plugin if any required manifest permission was not
+   granted
+2. every Host Service operation checks its permission again at the service
+   boundary
+
+Plugin API v1 also follows least privilege: even if the host caller accidentally
+passes extra permissions to `PluginRegistry.activate`, the plugin context
+receives only permissions that the plugin declared as required in its manifest.
+
+This means, for example, a formatter that declares only `workspaceRead` and
+`workspaceWrite` cannot obtain `network` merely because the application has a
+network backend available.
 
 ## Execution modes
 
@@ -148,11 +173,8 @@ The initial permissions are:
 - `buildArtifacts`
 - `openExternalURL`
 
-A plugin cannot activate unless the host grants every permission declared as
-required by its manifest.
-
-Future host services must check these permissions again at the service boundary;
-activation-time checking is not the only security layer.
+`workspaceWrite` does not implicitly grant `workspaceRead`; permissions remain
+independent so the host can express narrow capabilities.
 
 ## Lifecycle and discovery
 
@@ -160,13 +182,12 @@ The registry lifecycle remains:
 
 `registered -> enabled -> active`
 
-The registry now also performs typed discovery:
+The registry performs typed discovery:
 
 - compiler plugins through `compilerProviders()`
 - AI plugins through `aiProviders()`
 
-Disabled providers are hidden from normal discovery unless the caller
-explicitly asks to include them.
+Disabled providers are hidden from normal discovery unless explicitly included.
 
 The registry owns lifecycle state. Plugins do not get to mark themselves active
 or bypass registration.
@@ -176,24 +197,26 @@ or bypass registration.
 Plugin API version 1 is the first compatibility contract.
 
 The registry rejects plugins targeting a different API version. Future host
-versions may add compatibility ranges, migrations, or adapters, but plugin code
-must never silently run against an incompatible host API.
+versions may add compatibility ranges, migrations, optional permissions, or
+adapters, but plugin code must never silently run against an incompatible host
+API.
 
 ## What 0.1.2 deliberately does not implement yet
 
 - downloading/installing plugin bundles
 - WebAssembly execution
-- remote AI HTTP clients
+- a production remote AI HTTP provider
 - Codex authentication
 - Clang/LLVM embedding
 - plugin management UI
 - persistent enable/disable state
-- credential storage
-- host filesystem/network service implementations
+- production Keychain credential backend
+- project-system workspace backend
+- user-facing permission approval UI
 - a public plugin marketplace
 
-Those layers are built on top of the manifest, permission, protocol, registry,
-and provider contracts introduced here.
+Those layers build on the manifest, provider, permission, registry, and Host
+Services contracts instead of bypassing them.
 
 ## Stock iOS constraint
 

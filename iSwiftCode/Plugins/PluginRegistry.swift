@@ -34,9 +34,9 @@ extension PluginRegistryError: LocalizedError {
 
 /// In-memory registry for the first plugin API.
 ///
-/// The registry owns lifecycle state and enforces manifest compatibility and
-/// permission grants. Persistent installation/enabled state will be layered on
-/// top later without changing the plugin protocol.
+/// The registry owns lifecycle state and enforces manifest compatibility,
+/// provider discovery, and permission grants. Host-service backends are bound
+/// only when a plugin activates.
 final class PluginRegistry {
     static let hostAPIVersion = PluginManifest.currentAPIVersion
 
@@ -181,7 +181,8 @@ final class PluginRegistry {
 
     func activate(
         identifier: String,
-        grantedPermissions: Set<PluginPermission>
+        grantedPermissions: Set<PluginPermission>,
+        serviceBackends: PluginHostServiceBackends = .empty
     ) throws {
         guard let plugin = plugins[identifier] else {
             throw PluginRegistryError.pluginNotFound(identifier)
@@ -203,9 +204,14 @@ final class PluginRegistry {
             return
         }
 
+        // API v1 has required permissions only. Even if a caller accidentally
+        // supplies extra grants, a plugin receives only permissions it declared
+        // in its manifest. Future optional permissions can extend this rule.
+        let effectivePermissions = grantedPermissions.intersection(required)
         let context = PluginHostContext(
             pluginIdentifier: identifier,
-            grantedPermissions: grantedPermissions
+            grantedPermissions: effectivePermissions,
+            serviceBackends: serviceBackends
         )
         try plugin.activate(context: context)
         activeIdentifiers.insert(identifier)
