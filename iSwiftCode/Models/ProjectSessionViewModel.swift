@@ -5,7 +5,6 @@ enum ProjectSessionError: Error, Equatable, Sendable {
     case fileAlreadyExists(WorkspacePath)
     case fileNotFound(WorkspacePath)
     case fileIsNotUTF8(WorkspacePath)
-    case cannotModifyEntryFile(WorkspacePath)
     case noActiveFile
 }
 
@@ -18,8 +17,6 @@ extension ProjectSessionError: LocalizedError {
             return "File '\(path.value)' does not exist."
         case .fileIsNotUTF8(let path):
             return "File '\(path.value)' cannot be opened in the text editor."
-        case .cannotModifyEntryFile(let path):
-            return "The project entry file '\(path.value)' cannot be renamed or deleted yet."
         case .noActiveFile:
             return "No file is currently selected."
         }
@@ -35,6 +32,8 @@ extension ProjectSessionError: LocalizedError {
 final class ProjectSessionViewModel: ObservableObject {
     @Published private(set) var files: [WorkspacePath] = []
     @Published private(set) var activeFilePath: WorkspacePath?
+    @Published private(set) var currentDescriptor: ProjectDescriptor
+
     @Published var source: String {
         didSet {
             guard !isReplacingSource, let activeFilePath else { return }
@@ -52,15 +51,16 @@ final class ProjectSessionViewModel: ObservableObject {
 
     private let compiler: any CompilerProvider
     private var workspace: ProjectWorkspace
+    private let projectStore: ProjectStore?
     private var buffers: [WorkspacePath: String] = [:]
     private var isReplacingSource = false
 
     var projectName: String {
-        workspace.descriptor.displayName
+        currentDescriptor.displayName
     }
 
     var entryFilePath: WorkspacePath? {
-        workspace.descriptor.entryFilePath
+        currentDescriptor.entryFilePath
     }
 
     var activeFileName: String {
@@ -82,43 +82,45 @@ final class ProjectSessionViewModel: ObservableObject {
             entryFilePath: mainPath
         )
 
-        let workspace: ProjectWorkspace
+        let resolvedWorkspace: ProjectWorkspace
+        let resolvedStore: ProjectStore?
 
         do {
             let store = try ProjectStore.applicationSupport()
-            workspace = try store.openOrCreateProject(
+            resolvedWorkspace = try store.openOrCreateProject(
                 descriptor: descriptor,
                 initialFiles: [
                     mainPath: Data(Self.welcomeProgram.utf8)
                 ]
             )
+            resolvedStore = store
         } catch {
-            // Persistence failure must not make the editor unusable. The same
-            // project/session API falls back to ephemeral storage.
             let storage = InMemoryProjectWorkspaceStorage()
-            workspace = try! ProjectWorkspace(
+            resolvedWorkspace = try! ProjectWorkspace(
                 descriptor: descriptor,
                 storage: storage
             )
-            try? workspace.writeTextFile(Self.welcomeProgram, at: mainPath)
+            try? resolvedWorkspace.writeTextFile(Self.welcomeProgram, at: mainPath)
+            resolvedStore = nil
         }
 
-        self.workspace = workspace
+        self.workspace = resolvedWorkspace
+        self.projectStore = resolvedStore
+        self.currentDescriptor = resolvedWorkspace.descriptor
         self.activeFilePath = nil
         self.source = ""
 
-        self.files = (try? workspace.listFiles().sorted()) ?? []
+        self.files = (try? resolvedWorkspace.listFiles().sorted()) ?? []
 
-        // Recover a missing scratch entry file without replacing an existing
-        // user's source.
-        if !(try? workspace.contains(mainPath))! {
-            try? workspace.writeTextFile(Self.welcomeProgram, at: mainPath)
-            self.files = (try? workspace.listFiles().sorted()) ?? [mainPath]
+        let containsMain = (try? resolvedWorkspace.contains(mainPath)) ?? false
+        if !containsMain {
+            try? resolvedWorkspace.writeTextFile(Self.welcomeProgram, at: mainPath)
+            self.files = (try? resolvedWorkspace.listFiles().sorted()) ?? [mainPath]
         }
 
-        let preferred = workspace.descriptor.entryFilePath ?? self.files.first
+        let preferred = resolvedWorkspace.descriptor.entryFilePath ?? self.files.first
         if let preferred,
-           let text = try? workspace.readTextFile(at: preferred) {
+           let text = try? resolvedWorkspace.readTextFile(at: preferred) {
             self.activeFilePath = preferred
             self.source = text
             self.buffers[preferred] = text
@@ -128,10 +130,13 @@ final class ProjectSessionViewModel: ObservableObject {
     init(
         compiler: any CompilerProvider,
         workspace: ProjectWorkspace,
-        preferredActiveFile: WorkspacePath? = nil
+        preferredActiveFile: WorkspacePath? = nil,
+        projectStore: ProjectStore? = nil
     ) throws {
         self.compiler = compiler
         self.workspace = workspace
+        self.projectStore = projectStore
+        self.currentDescriptor = workspace.descriptor
         self.source = ""
 
         try reloadFiles()
@@ -187,10 +192,27 @@ final class ProjectSessionViewModel: ObservableObject {
         try selectFile(path)
     }
 
-    func renameFile(from sourcePath: WorkspacePath, to destinationPath: WorkspacePath) throws {
-        if sourcePath == workspace.descriptor.entryFilePath {
-            throw ProjectSessionError.cannotModifyEntryFile(sourcePath)
+    func setEntryFile(_ path: WorkspacePath?) throws {
+        if let path, !(try workspace.contains(path)) {
+            throw ProjectSessionError.fileNotFound(path)
         }
+
+        let updatedWorkspace: ProjectWorkspace
+
+        if let projectStore {
+            updatedWorkspace = try projectStore.setEntryFile(
+                projectIdentifier: currentDescriptor.identifier,
+                path: path
+            )
+        } else {
+            let updatedDescriptor = currentDescriptor.replacingEntryFilePath(path)
+            updatedWorkspace = try workspace.replacingDescriptor(updatedDescriptor)
+        }
+
+        installWorkspace(updatedWorkspace)
+    }
+
+    func renameFile(from sourcePath: WorkspacePath, to destinationPath: WorkspacePath) throws {
         guard try workspace.contains(sourcePath) else {
             throw ProjectSessionError.fileNotFound(sourcePath)
         }
@@ -198,7 +220,28 @@ final class ProjectSessionViewModel: ObservableObject {
             throw ProjectSessionError.fileAlreadyExists(destinationPath)
         }
 
-        try workspace.moveFile(from: sourcePath, to: destinationPath)
+        let wasEntryFile = sourcePath == entryFilePath
+        let updatedWorkspace: ProjectWorkspace
+
+        if let projectStore {
+            updatedWorkspace = try projectStore.renameFile(
+                projectIdentifier: currentDescriptor.identifier,
+                from: sourcePath,
+                to: destinationPath
+            )
+        } else {
+            try workspace.moveFile(from: sourcePath, to: destinationPath)
+
+            if wasEntryFile {
+                let updatedDescriptor = currentDescriptor
+                    .replacingEntryFilePath(destinationPath)
+                updatedWorkspace = try workspace.replacingDescriptor(updatedDescriptor)
+            } else {
+                updatedWorkspace = workspace
+            }
+        }
+
+        installWorkspace(updatedWorkspace)
 
         if let buffered = buffers.removeValue(forKey: sourcePath) {
             buffers[destinationPath] = buffered
@@ -222,28 +265,49 @@ final class ProjectSessionViewModel: ObservableObject {
                 text = try workspace.readTextFile(at: destinationPath)
                 buffers[destinationPath] = text
             }
-
             replaceSource(text)
         }
     }
 
     func deleteFile(at path: WorkspacePath) throws {
-        if path == workspace.descriptor.entryFilePath {
-            throw ProjectSessionError.cannotModifyEntryFile(path)
-        }
         guard try workspace.contains(path) else {
             throw ProjectSessionError.fileNotFound(path)
         }
 
-        try workspace.deleteFile(at: path)
+        let wasActive = activeFilePath == path
+        let isEntryFile = entryFilePath == path
+        let replacementEntry = isEntryFile
+            ? automaticReplacementEntry(excluding: path)
+            : nil
+
+        let updatedWorkspace: ProjectWorkspace
+
+        if let projectStore {
+            updatedWorkspace = try projectStore.deleteFile(
+                projectIdentifier: currentDescriptor.identifier,
+                at: path,
+                replacementEntryFile: replacementEntry
+            )
+        } else {
+            try workspace.deleteFile(at: path)
+
+            if isEntryFile {
+                let updatedDescriptor = currentDescriptor
+                    .replacingEntryFilePath(replacementEntry)
+                updatedWorkspace = try workspace.replacingDescriptor(updatedDescriptor)
+            } else {
+                updatedWorkspace = workspace
+            }
+        }
+
+        installWorkspace(updatedWorkspace)
         buffers.removeValue(forKey: path)
         dirtyFilePaths.remove(path)
 
-        let wasActive = activeFilePath == path
         try reloadFiles()
 
         if wasActive {
-            let next = workspace.descriptor.entryFilePath.flatMap { entry in
+            let next = entryFilePath.flatMap { entry in
                 files.contains(entry) ? entry : nil
             } ?? files.first
 
@@ -288,7 +352,7 @@ final class ProjectSessionViewModel: ObservableObject {
         }
 
         return ProjectWorkspaceSnapshot(
-            descriptor: persisted.descriptor,
+            descriptor: currentDescriptor,
             files: files.sorted { $0.path < $1.path }
         )
     }
@@ -343,7 +407,7 @@ final class ProjectSessionViewModel: ObservableObject {
     }
 
     func restoreExample() {
-        guard let entryFilePath = workspace.descriptor.entryFilePath else {
+        guard let entryFilePath else {
             errorMessage = ProjectSessionError.noActiveFile.localizedDescription
             return
         }
@@ -372,6 +436,25 @@ final class ProjectSessionViewModel: ObservableObject {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    private func installWorkspace(_ updatedWorkspace: ProjectWorkspace) {
+        workspace = updatedWorkspace
+        currentDescriptor = updatedWorkspace.descriptor
+    }
+
+    private func automaticReplacementEntry(
+        excluding excludedPath: WorkspacePath
+    ) -> WorkspacePath? {
+        let candidates = files.filter { $0 != excludedPath }
+
+        if let source = candidates.first(where: {
+            ProjectSourceLanguageResolver.language(for: $0) != nil
+        }) {
+            return source
+        }
+
+        return nil
     }
 
     private func replaceSource(_ text: String) {

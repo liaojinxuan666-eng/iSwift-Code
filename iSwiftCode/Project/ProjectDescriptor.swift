@@ -59,6 +59,16 @@ struct ProjectDescriptor: Codable, Equatable, Sendable {
         }
     }
 
+    func replacingEntryFilePath(_ path: WorkspacePath?) -> ProjectDescriptor {
+        ProjectDescriptor(
+            identifier: identifier,
+            displayName: displayName,
+            schemaVersion: schemaVersion,
+            entryFilePath: path,
+            attributes: attributes
+        )
+    }
+
     private static func isValidIdentifier(_ identifier: String) -> Bool {
         guard !identifier.isEmpty else { return false }
 

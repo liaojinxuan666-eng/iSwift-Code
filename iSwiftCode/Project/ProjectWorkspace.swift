@@ -4,6 +4,7 @@ enum ProjectWorkspaceError: Error, Equatable, Sendable {
     case invalidUTF8(WorkspacePath)
     case entryFileNotConfigured
     case entryFileMissing(WorkspacePath)
+    case descriptorIdentifierMismatch(expected: String, found: String)
 }
 
 extension ProjectWorkspaceError: LocalizedError {
@@ -15,6 +16,8 @@ extension ProjectWorkspaceError: LocalizedError {
             return "Project does not define an entry file."
         case .entryFileMissing(let path):
             return "Configured entry file '\(path.value)' does not exist."
+        case .descriptorIdentifierMismatch(let expected, let found):
+            return "Replacement descriptor identifier '\(found)' does not match workspace identifier '\(expected)'."
         }
     }
 }
@@ -53,6 +56,20 @@ struct ProjectWorkspace: Sendable {
         try descriptor.validate()
         self.descriptor = descriptor
         self.storage = storage
+    }
+
+    func replacingDescriptor(_ replacement: ProjectDescriptor) throws -> ProjectWorkspace {
+        guard replacement.identifier == descriptor.identifier else {
+            throw ProjectWorkspaceError.descriptorIdentifierMismatch(
+                expected: descriptor.identifier,
+                found: replacement.identifier
+            )
+        }
+
+        return try ProjectWorkspace(
+            descriptor: replacement,
+            storage: storage
+        )
     }
 
     func listFiles() throws -> [WorkspacePath] {

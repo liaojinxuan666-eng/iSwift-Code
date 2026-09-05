@@ -5,6 +5,10 @@ enum ProjectStoreError: Error, Equatable, Sendable {
     case projectNotFound(String)
     case descriptorMissing(String)
     case descriptorIdentifierMismatch(expected: String, found: String)
+    case fileNotFound(WorkspacePath)
+    case fileAlreadyExists(WorkspacePath)
+    case entryFileNotFound(WorkspacePath)
+    case replacementEntryMatchesDeletedFile(WorkspacePath)
 }
 
 extension ProjectStoreError: LocalizedError {
@@ -18,6 +22,14 @@ extension ProjectStoreError: LocalizedError {
             return "Project '\(identifier)' is missing its descriptor."
         case .descriptorIdentifierMismatch(let expected, let found):
             return "Project descriptor identifier '\(found)' does not match directory identifier '\(expected)'."
+        case .fileNotFound(let path):
+            return "Project file '\(path.value)' does not exist."
+        case .fileAlreadyExists(let path):
+            return "Project file '\(path.value)' already exists."
+        case .entryFileNotFound(let path):
+            return "Entry file '\(path.value)' does not exist in the project."
+        case .replacementEntryMatchesDeletedFile(let path):
+            return "Deleted file '\(path.value)' cannot also be its replacement entry file."
         }
     }
 }
@@ -188,6 +200,122 @@ struct ProjectStore: @unchecked Sendable {
         }
 
         try writeDescriptor(descriptor, projectRoot: projectRoot)
+    }
+
+    /// Change only the project's entry-file metadata.
+    ///
+    /// Passing nil intentionally clears the entry-file selection.
+    func setEntryFile(
+        projectIdentifier: String,
+        path: WorkspacePath?
+    ) throws -> ProjectWorkspace {
+        let workspace = try openProject(identifier: projectIdentifier)
+
+        if let path, !(try workspace.contains(path)) {
+            throw ProjectStoreError.entryFileNotFound(path)
+        }
+
+        let updatedDescriptor = workspace.descriptor.replacingEntryFilePath(path)
+        try saveDescriptor(updatedDescriptor)
+
+        return try workspace.replacingDescriptor(updatedDescriptor)
+    }
+
+    /// Rename a project file and keep descriptor metadata consistent.
+    ///
+    /// If the source is the current entry file, the descriptor is updated after
+    /// the file move. If metadata persistence fails, the move is rolled back.
+    func renameFile(
+        projectIdentifier: String,
+        from sourcePath: WorkspacePath,
+        to destinationPath: WorkspacePath
+    ) throws -> ProjectWorkspace {
+        let workspace = try openProject(identifier: projectIdentifier)
+
+        guard try workspace.contains(sourcePath) else {
+            throw ProjectStoreError.fileNotFound(sourcePath)
+        }
+        guard !(try workspace.contains(destinationPath)) else {
+            throw ProjectStoreError.fileAlreadyExists(destinationPath)
+        }
+
+        let oldDescriptor = workspace.descriptor
+        let shouldUpdateEntry = oldDescriptor.entryFilePath == sourcePath
+        let updatedDescriptor = shouldUpdateEntry
+            ? oldDescriptor.replacingEntryFilePath(destinationPath)
+            : oldDescriptor
+
+        try workspace.moveFile(
+            from: sourcePath,
+            to: destinationPath
+        )
+
+        do {
+            if shouldUpdateEntry {
+                try saveDescriptor(updatedDescriptor)
+            }
+        } catch {
+            try? workspace.moveFile(
+                from: destinationPath,
+                to: sourcePath
+            )
+            throw error
+        }
+
+        if shouldUpdateEntry {
+            return try workspace.replacingDescriptor(updatedDescriptor)
+        }
+        return workspace
+    }
+
+    /// Delete a project file while keeping entry metadata valid.
+    ///
+    /// If the deleted file is the entry file, the caller supplies the new entry
+    /// file or nil to clear it. File bytes are retained in memory until metadata
+    /// persistence succeeds so a descriptor-write failure can restore the file.
+    func deleteFile(
+        projectIdentifier: String,
+        at path: WorkspacePath,
+        replacementEntryFile: WorkspacePath? = nil
+    ) throws -> ProjectWorkspace {
+        let workspace = try openProject(identifier: projectIdentifier)
+
+        guard try workspace.contains(path) else {
+            throw ProjectStoreError.fileNotFound(path)
+        }
+
+        let oldDescriptor = workspace.descriptor
+        let isDeletingEntry = oldDescriptor.entryFilePath == path
+
+        if isDeletingEntry, let replacementEntryFile {
+            guard replacementEntryFile != path else {
+                throw ProjectStoreError.replacementEntryMatchesDeletedFile(path)
+            }
+            guard try workspace.contains(replacementEntryFile) else {
+                throw ProjectStoreError.entryFileNotFound(replacementEntryFile)
+            }
+        }
+
+        let updatedDescriptor = isDeletingEntry
+            ? oldDescriptor.replacingEntryFilePath(replacementEntryFile)
+            : oldDescriptor
+
+        let originalData = try workspace.readFile(at: path)
+        try workspace.deleteFile(at: path)
+
+        do {
+            if isDeletingEntry {
+                try saveDescriptor(updatedDescriptor)
+            }
+        } catch {
+            try? workspace.writeFile(originalData, at: path)
+            throw error
+        }
+
+        if isDeletingEntry {
+            return try workspace.replacingDescriptor(updatedDescriptor)
+        }
+        return workspace
     }
 
     func listProjects() throws -> [ProjectDescriptor] {

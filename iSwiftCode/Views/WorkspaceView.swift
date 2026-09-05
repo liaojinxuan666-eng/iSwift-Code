@@ -24,6 +24,12 @@ struct WorkspaceView: View {
                             .font(.caption.monospaced())
                             .lineLimit(1)
 
+                        if model.activeFilePath == model.entryFilePath {
+                            Label("Entry", systemImage: "flag.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+
                         if model.isActiveFileDirty {
                             Text("Modified")
                                 .font(.caption2.weight(.semibold))
@@ -75,6 +81,7 @@ struct WorkspaceView: View {
                         Button("Restore Example", systemImage: "arrow.counterclockwise") {
                             model.restoreExample()
                         }
+                        .disabled(model.entryFilePath == nil)
 
                         Button("IPA Export — Phase 2", systemImage: "shippingbox", action: {})
                             .disabled(true)
@@ -138,7 +145,7 @@ struct WorkspaceView: View {
                     fileBeingRenamed = nil
                 }
             } message: {
-                Text("Rename within the current project.")
+                Text("Entry-file metadata is updated automatically when the entry file is renamed.")
             }
             .alert(
                 "Project Error",
@@ -177,6 +184,11 @@ struct WorkspaceView: View {
                                 .font(.caption.monospaced())
                                 .lineLimit(1)
 
+                            if path == model.entryFilePath {
+                                Image(systemName: "flag.fill")
+                                    .font(.caption2)
+                            }
+
                             if model.dirtyFilePaths.contains(path) {
                                 Circle()
                                     .frame(width: 6, height: 6)
@@ -188,18 +200,23 @@ struct WorkspaceView: View {
                     .buttonStyle(.bordered)
                     .tint(model.activeFilePath == path ? .accentColor : .secondary)
                     .contextMenu {
+                        Button("Set as Entry", systemImage: "flag") {
+                            perform {
+                                try model.setEntryFile(path)
+                            }
+                        }
+                        .disabled(path == model.entryFilePath)
+
                         Button("Rename", systemImage: "pencil") {
                             fileBeingRenamed = path
                             renameDestination = path.value
                         }
-                        .disabled(path == model.entryFilePath)
 
                         Button("Delete", systemImage: "trash", role: .destructive) {
                             perform {
                                 try model.deleteFile(at: path)
                             }
                         }
-                        .disabled(path == model.entryFilePath)
                     }
                 }
 
@@ -224,9 +241,17 @@ struct WorkspaceView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Project Workspace")
                     .font(.subheadline.weight(.semibold))
-                Text("\(model.files.count) file(s) • Local provider pipeline")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                if let entryFilePath = model.entryFilePath {
+                    Text("\(model.files.count) file(s) • Entry: \(entryFilePath.value)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    Text("\(model.files.count) file(s) • No entry file")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
