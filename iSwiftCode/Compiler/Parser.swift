@@ -20,7 +20,11 @@ indirect enum Statement: Sendable {
     case assignment(name: String, value: Expression, location: SourceLocation)
     case print(Expression, SourceLocation)
     case expression(Expression, SourceLocation)
+    case block([Statement], SourceLocation)
     case ifStatement(condition: Expression, thenBranch: [Statement], elseBranch: [Statement], location: SourceLocation)
+    case whileStatement(condition: Expression, body: [Statement], location: SourceLocation)
+    case breakStatement(SourceLocation)
+    case continueStatement(SourceLocation)
 }
 
 struct ParseResult: Sendable {
@@ -71,7 +75,15 @@ struct Parser {
 
     private mutating func statement() throws -> Statement {
         if match(.ifKeyword) { return try ifStatement(keyword: previous) }
+        if match(.whileKeyword) { return try whileStatement(keyword: previous) }
+        if match(.breakKeyword) { return .breakStatement(previous.location) }
+        if match(.continueKeyword) { return .continueStatement(previous.location) }
         if match(.printKeyword) { return try printStatement(keyword: previous) }
+
+        if match(.leftBrace) {
+            let location = previous.location
+            return .block(try block(), location)
+        }
 
         if case .identifier(let name) = peek.kind, checkNext(.equal) {
             let location = advance().location
@@ -101,6 +113,13 @@ struct Parser {
             elseBranch: elseBranch,
             location: keyword.location
         )
+    }
+
+    private mutating func whileStatement(keyword: Token) throws -> Statement {
+        let condition = try expression()
+        try consume(.leftBrace, "Expected '{' after while condition.")
+        let body = try block()
+        return .whileStatement(condition: condition, body: body, location: keyword.location)
     }
 
     private mutating func block() throws -> [Statement] {
@@ -272,7 +291,9 @@ struct Parser {
                 skipSeparators()
                 return
             }
-            if check(.letKeyword) || check(.varKeyword) || check(.ifKeyword) || check(.printKeyword) || check(.rightBrace) {
+            if check(.letKeyword) || check(.varKeyword) || check(.ifKeyword) || check(.whileKeyword) ||
+                check(.breakKeyword) || check(.continueKeyword) || check(.printKeyword) ||
+                check(.leftBrace) || check(.rightBrace) {
                 if check(.rightBrace) { _ = advance() }
                 return
             }
@@ -288,7 +309,9 @@ struct Parser {
         switch (lhs, rhs) {
         case (.identifier, .identifier), (.integer, .integer), (.double, .double), (.string, .string),
              (.letKeyword, .letKeyword), (.varKeyword, .varKeyword), (.ifKeyword, .ifKeyword),
-             (.elseKeyword, .elseKeyword), (.trueKeyword, .trueKeyword), (.falseKeyword, .falseKeyword),
+             (.elseKeyword, .elseKeyword), (.whileKeyword, .whileKeyword),
+             (.breakKeyword, .breakKeyword), (.continueKeyword, .continueKeyword),
+             (.trueKeyword, .trueKeyword), (.falseKeyword, .falseKeyword),
              (.printKeyword, .printKeyword), (.leftParen, .leftParen), (.rightParen, .rightParen),
              (.leftBrace, .leftBrace), (.rightBrace, .rightBrace), (.plus, .plus), (.minus, .minus),
              (.star, .star), (.slash, .slash), (.bang, .bang), (.bangEqual, .bangEqual),

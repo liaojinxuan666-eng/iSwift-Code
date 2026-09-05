@@ -10,6 +10,9 @@ enum TokenKind: Equatable, Sendable {
     case varKeyword
     case ifKeyword
     case elseKeyword
+    case whileKeyword
+    case breakKeyword
+    case continueKeyword
     case trueKeyword
     case falseKeyword
     case printKeyword
@@ -180,6 +183,9 @@ struct Lexer {
         case "var": kind = .varKeyword
         case "if": kind = .ifKeyword
         case "else": kind = .elseKeyword
+        case "while": kind = .whileKeyword
+        case "break": kind = .breakKeyword
+        case "continue": kind = .continueKeyword
         case "true": kind = .trueKeyword
         case "false": kind = .falseKeyword
         case "print": kind = .printKeyword

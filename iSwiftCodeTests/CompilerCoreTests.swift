@@ -56,4 +56,99 @@ final class CompilerCoreTests: XCTestCase {
         XCTAssertTrue(result.succeeded)
         XCTAssertEqual(result.output, "iSwift Code")
     }
+
+    func testWhileLoop() {
+        let result = compiler.run(source: """
+        var index = 0
+        var total = 0
+        while index < 5 {
+            index = index + 1
+            total = total + index
+        }
+        print(total)
+        """)
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.output, "15")
+    }
+
+    func testBlockScopeSupportsShadowing() {
+        let result = compiler.run(source: """
+        let value = 1
+        {
+            let value = 2
+            print(value)
+        }
+        print(value)
+        """)
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.output, "2\n1")
+    }
+
+    func testBlockLocalDoesNotEscape() {
+        let result = compiler.run(source: """
+        {
+            let hidden = 7
+        }
+        print(hidden)
+        """)
+
+        XCTAssertFalse(result.succeeded)
+        XCTAssertEqual(result.diagnostics.first?.message, "Cannot find 'hidden' in scope.")
+    }
+
+    func testBreakAndContinue() {
+        let result = compiler.run(source: """
+        var index = 0
+        var total = 0
+        while index < 5 {
+            index = index + 1
+            if index == 3 {
+                continue
+            }
+            total = total + index
+            if total > 7 {
+                break
+            }
+        }
+        print(total)
+        """)
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.output, "12")
+    }
+
+    func testNestedScopesAreUnwoundByBreak() {
+        let result = compiler.run(source: """
+        var index = 0
+        while index < 3 {
+            index = index + 1
+            {
+                let temporary = index
+                if temporary == 2 {
+                    break
+                }
+            }
+        }
+        print(index)
+        """)
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.output, "2")
+    }
+
+    func testBreakOutsideLoopIsRejected() {
+        let result = compiler.run(source: "break")
+
+        XCTAssertFalse(result.succeeded)
+        XCTAssertEqual(result.diagnostics.first?.message, "'break' is only allowed inside a loop.")
+    }
+
+    func testContinueOutsideLoopIsRejected() {
+        let result = compiler.run(source: "continue")
+
+        XCTAssertFalse(result.succeeded)
+        XCTAssertEqual(result.diagnostics.first?.message, "'continue' is only allowed inside a loop.")
+    }
 }

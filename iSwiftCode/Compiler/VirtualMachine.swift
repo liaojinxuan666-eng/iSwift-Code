@@ -15,7 +15,7 @@ struct VirtualMachine {
 
     func execute(_ program: BytecodeProgram) -> RunResult {
         var stack: [RuntimeValue] = []
-        var variables: [String: VariableSlot] = [:]
+        var scopes: [[String: VariableSlot]] = [[:]]
         var output: [String] = []
         var instructionPointer = 0
         var executed = 0
@@ -33,54 +33,80 @@ struct VirtualMachine {
                 switch instruction.operation {
                 case .push(let value):
                     stack.append(value)
+
                 case .load(let name):
-                    guard let slot = variables[name] else {
+                    guard let slot = lookup(name, in: scopes) else {
                         throw RuntimeFailure(message: "Cannot find '\(name)' in scope.", location: instruction.location)
                     }
                     stack.append(slot.value)
+
                 case .declare(let name, let mutable):
-                    guard variables[name] == nil else {
+                    guard scopes[scopes.count - 1][name] == nil else {
                         throw RuntimeFailure(message: "Invalid redeclaration of '\(name)'.", location: instruction.location)
                     }
-                    variables[name] = VariableSlot(value: try pop(&stack, at: instruction.location), mutable: mutable)
+                    scopes[scopes.count - 1][name] = VariableSlot(
+                        value: try pop(&stack, at: instruction.location),
+                        mutable: mutable
+                    )
+
                 case .assign(let name):
-                    guard var slot = variables[name] else {
+                    guard let scopeIndex = scopeIndex(containing: name, in: scopes),
+                          var slot = scopes[scopeIndex][name] else {
                         throw RuntimeFailure(message: "Cannot find '\(name)' in scope.", location: instruction.location)
                     }
                     guard slot.mutable else {
                         throw RuntimeFailure(message: "Cannot assign to value: '\(name)' is a 'let' constant.", location: instruction.location)
                     }
                     slot.value = try pop(&stack, at: instruction.location)
-                    variables[name] = slot
+                    scopes[scopeIndex][name] = slot
+
+                case .beginScope:
+                    scopes.append([:])
+
+                case .endScope:
+                    guard scopes.count > 1 else {
+                        throw RuntimeFailure(message: "Internal scope underflow.", location: instruction.location)
+                    }
+                    scopes.removeLast()
+
                 case .add:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(try add(lhs, rhs, at: instruction.location))
+
                 case .subtract:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(try numeric(lhs, rhs, operation: -, at: instruction.location))
+
                 case .multiply:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(try numeric(lhs, rhs, operation: *, at: instruction.location))
+
                 case .divide:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(try divide(lhs, rhs, at: instruction.location))
+
                 case .negate:
                     stack.append(try negate(try pop(&stack, at: instruction.location), at: instruction.location))
+
                 case .not:
                     let value = try pop(&stack, at: instruction.location)
                     guard case .bool(let bool) = value else {
                         throw typeError("Unary '!' requires Bool, found \(value.typeName).", at: instruction.location)
                     }
                     stack.append(.bool(!bool))
+
                 case .equal:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(.bool(lhs == rhs))
+
                 case .notEqual:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(.bool(lhs != rhs))
+
                 case .less, .lessEqual, .greater, .greaterEqual:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     stack.append(try compare(lhs, rhs, using: instruction.operation, at: instruction.location))
+
                 case .and, .or:
                     let (lhs, rhs) = try operands(&stack, at: instruction.location)
                     guard case .bool(let left) = lhs, case .bool(let right) = rhs else {
@@ -91,16 +117,20 @@ struct VirtualMachine {
                     } else {
                         stack.append(.bool(left || right))
                     }
+
                 case .print:
                     output.append(try pop(&stack, at: instruction.location).displayText)
+
                 case .pop:
                     _ = try pop(&stack, at: instruction.location)
+
                 case .jumpIfFalse(let target):
                     let value = try pop(&stack, at: instruction.location)
                     guard case .bool(let condition) = value else {
-                        throw typeError("If condition must be Bool, found \(value.typeName).", at: instruction.location)
+                        throw typeError("Condition must be Bool, found \(value.typeName).", at: instruction.location)
                     }
                     if !condition { instructionPointer = target }
+
                 case .jump(let target):
                     instructionPointer = target
                 }
@@ -120,6 +150,22 @@ struct VirtualMachine {
                 instructionCount: executed
             )
         }
+    }
+
+    private func lookup(_ name: String, in scopes: [[String: VariableSlot]]) -> VariableSlot? {
+        for index in scopes.indices.reversed() {
+            if let slot = scopes[index][name] {
+                return slot
+            }
+        }
+        return nil
+    }
+
+    private func scopeIndex(containing name: String, in scopes: [[String: VariableSlot]]) -> Int? {
+        for index in scopes.indices.reversed() where scopes[index][name] != nil {
+            return index
+        }
+        return nil
     }
 
     private func pop(_ stack: inout [RuntimeValue], at location: SourceLocation) throws -> RuntimeValue {
