@@ -84,7 +84,7 @@ final class PreviewFoundationTests: XCTestCase {
         XCTAssertTrue(text.contains("Demo Preview"))
         XCTAssertEqual(project.descriptor.attributes["projectKind"], "app-preview")
 
-        let result = try SwiftUIPreviewProvider().makePreview(
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider().makePreview(
             PreviewRequest(
                 files: [PreviewSourceFile(path: entry.value, contents: text)],
                 entryFilePath: entry.value

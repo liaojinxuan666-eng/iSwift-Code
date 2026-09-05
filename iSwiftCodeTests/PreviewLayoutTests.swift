@@ -159,7 +159,18 @@ final class PreviewLayoutTests: XCTestCase {
             String(data: data, encoding: .utf8)
         )
 
-        let result = try preview(source)
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider()
+            .makePreview(
+                PreviewRequest(
+                    files: [
+                        PreviewSourceFile(
+                            path: entry.value,
+                            contents: source
+                        )
+                    ],
+                    entryFilePath: entry.value
+                )
+            )
 
         XCTAssertTrue(result.succeeded)
         XCTAssertNotNil(result.document)

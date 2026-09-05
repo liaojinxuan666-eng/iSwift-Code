@@ -223,7 +223,7 @@ final class PreviewButtonActionProviderTests: XCTestCase {
                     count += 1
                 }
 
-                Text("Count: \\(count)")
+                Text("Count: \(count)")
             }
             """
         )
@@ -253,7 +253,18 @@ final class PreviewButtonActionProviderTests: XCTestCase {
         XCTAssertTrue(source.contains("count += 1"))
         XCTAssertTrue(source.contains("enabled.toggle()"))
 
-        let result = try preview(source)
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider()
+            .makePreview(
+                PreviewRequest(
+                    files: [
+                        PreviewSourceFile(
+                            path: entry.value,
+                            contents: source
+                        )
+                    ],
+                    entryFilePath: entry.value
+                )
+            )
         XCTAssertTrue(result.succeeded)
     }
 }

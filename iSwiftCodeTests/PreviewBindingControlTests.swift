@@ -71,8 +71,8 @@ final class PreviewBindingControlTests: XCTestCase {
             VStack(spacing: 12) {
                 TextField("Name", text: $name)
                 Toggle("Enabled", isOn: $enabled)
-                Text("Hello, \\(name)")
-                Text("Enabled: \\(enabled)")
+                Text("Hello, \(name)")
+                Text("Enabled: \(enabled)")
             }
             """
         )
@@ -140,7 +140,7 @@ final class PreviewBindingControlTests: XCTestCase {
         )
         XCTAssertEqual(
             store.resolveInterpolations(
-                in: "Hello, \\(name)"
+                in: "Hello, \(name)"
             ),
             "Hello, Alice"
         )
@@ -167,7 +167,18 @@ final class PreviewBindingControlTests: XCTestCase {
         XCTAssertTrue(source.contains("TextField"))
         XCTAssertTrue(source.contains("Toggle"))
 
-        let result = try preview(source)
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider()
+            .makePreview(
+                PreviewRequest(
+                    files: [
+                        PreviewSourceFile(
+                            path: entry.value,
+                            contents: source
+                        )
+                    ],
+                    entryFilePath: entry.value
+                )
+            )
         XCTAssertTrue(result.succeeded)
     }
 }

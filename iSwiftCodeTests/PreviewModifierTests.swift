@@ -132,7 +132,18 @@ final class PreviewModifierTests: XCTestCase {
         let entry = try XCTUnwrap(project.descriptor.entryFilePath)
         let data = try XCTUnwrap(project.initialFiles[entry])
         let source = try XCTUnwrap(String(data: data, encoding: .utf8))
-        let result = try preview(source)
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider()
+            .makePreview(
+                PreviewRequest(
+                    files: [
+                        PreviewSourceFile(
+                            path: entry.value,
+                            contents: source
+                        )
+                    ],
+                    entryFilePath: entry.value
+                )
+            )
 
         XCTAssertTrue(result.succeeded)
         XCTAssertNotNil(result.document)

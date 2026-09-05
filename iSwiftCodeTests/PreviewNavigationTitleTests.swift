@@ -165,7 +165,18 @@ final class PreviewNavigationTitleTests: XCTestCase {
             source.contains(".navigationTitle(\"Navigation Demo\")")
         )
 
-        let result = try navigationPreview(source)
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider()
+            .makePreview(
+                PreviewRequest(
+                    files: [
+                        PreviewSourceFile(
+                            path: entry.value,
+                            contents: source
+                        )
+                    ],
+                    entryFilePath: entry.value
+                )
+            )
         XCTAssertTrue(result.succeeded)
         XCTAssertNotNil(result.document)
     }
