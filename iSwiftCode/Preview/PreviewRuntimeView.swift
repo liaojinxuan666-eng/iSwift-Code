@@ -93,6 +93,29 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .picker(
+            let title,
+            let reference,
+            let options
+        ):
+            return AnyView(
+                Picker(
+                    title,
+                    selection: selectionBinding(
+                        for: reference.stateName
+                    )
+                ) {
+                    ForEach(
+                        Array(options.enumerated()),
+                        id: \.offset
+                    ) { item in
+                        Text(item.element.title)
+                            .tag(item.element.value)
+                    }
+                }
+                .pickerStyle(.menu)
+            )
+
         case .button(let title):
             return AnyView(
                 Button(title) {}
@@ -390,6 +413,24 @@ private struct PreviewNodeView: View {
             set: { value in
                 stateStore.setValue(
                     .bool(value),
+                    for: stateName
+                )
+            }
+        )
+    }
+
+    private func selectionBinding(
+        for stateName: String
+    ) -> Binding<PreviewStateValue> {
+        Binding(
+            get: {
+                stateStore.value(
+                    for: stateName
+                ) ?? .string("")
+            },
+            set: { value in
+                stateStore.setValue(
+                    value,
                     for: stateName
                 )
             }

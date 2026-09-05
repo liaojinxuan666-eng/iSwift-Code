@@ -12,7 +12,10 @@ final class PreviewSessionViewModel: ObservableObject {
     private let provider: any PreviewProvider
     private var pendingRefreshTask: Task<Void, Never>?
 
-    init(provider: any PreviewProvider = SwiftUIPreviewProvider()) {
+    init(
+        provider: any PreviewProvider =
+            SwiftUIInteractivePreviewProvider()
+    ) {
         self.provider = provider
     }
 

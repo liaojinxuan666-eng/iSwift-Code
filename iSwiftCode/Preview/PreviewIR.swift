@@ -61,7 +61,7 @@ enum PreviewAlignment: String, Codable, CaseIterable, Equatable, Sendable {
     case bottomTrailing
 }
 
-enum PreviewStateValue: Equatable, Sendable {
+enum PreviewStateValue: Equatable, Hashable, Sendable {
     case string(String)
     case bool(Bool)
     case number(Double)
@@ -94,6 +94,11 @@ struct PreviewStateDefinition: Equatable, Sendable {
 /// the signed runtime decides how to expose a native binding for each control.
 struct PreviewBindingReference: Equatable, Sendable {
     let stateName: String
+}
+
+struct PreviewPickerOption: Equatable, Hashable, Sendable {
+    let title: String
+    let value: PreviewStateValue
 }
 
 enum PreviewDimension: Equatable, Sendable {
@@ -151,6 +156,11 @@ indirect enum PreviewNode: Equatable, Sendable {
     case toggle(
         title: String,
         isOn: PreviewBindingReference
+    )
+    case picker(
+        title: String,
+        selection: PreviewBindingReference,
+        options: [PreviewPickerOption]
     )
 
     case button(title: String)
