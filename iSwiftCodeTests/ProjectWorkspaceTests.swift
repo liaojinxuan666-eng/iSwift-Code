@@ -80,7 +80,11 @@ final class ProjectWorkspaceTests: XCTestCase {
     func testWorkspacePathCodableUsesPlainString() throws {
         let path = try WorkspacePath("Sources/main.swift")
         let data = try JSONEncoder().encode(path)
-        XCTAssertEqual(String(data: data, encoding: .utf8), "\"Sources/main.swift\"")
+
+        // JSONEncoder may legally escape "/" as "\/" depending on Foundation
+        // behavior. Decode the JSON string instead of asserting raw bytes.
+        let encodedString = try JSONDecoder().decode(String.self, from: data)
+        XCTAssertEqual(encodedString, path.value)
 
         let decoded = try JSONDecoder().decode(WorkspacePath.self, from: data)
         XCTAssertEqual(decoded, path)
