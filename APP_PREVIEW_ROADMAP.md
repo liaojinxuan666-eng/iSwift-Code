@@ -6,61 +6,62 @@ App Preview keeps three separate product paths:
 
 `Run Code | Preview App | Build IPA`
 
-## Completed before this batch
+## Completed
 
 - portable Preview IR and signed native runtime
 - modifier + stack layout IR
 - Live Preview with unsaved-buffer refresh
-- primitive @State model
+- primitive `@State`
 - TextField / Toggle / Picker bindings
 - constrained Button action runtime
-- NavigationStack + NavigationLink push navigation
+- NavigationStack + NavigationLink
+- navigationTitle
+- multi-page built-in Preview template
 
-## Navigation titles + multi-page template — current batch
+## Nested NavigationLink — current batch
 
-The generic modifier IR now carries:
+Navigation destinations are now parsed recursively through the navigation-aware
+provider rather than stopping at the lower-level interactive provider.
 
-```swift
-.navigationTitle("Title")
-```
-
-The SwiftUI Preview Provider parses the title as a portable string modifier and
-the signed runtime maps it to native SwiftUI `navigationTitle` only at render
-time.
-
-The built-in SwiftUI Preview template is now a real multi-page demo. Its first
-screen contains the existing state/binding/action examples and a
-`NavigationLink("Open Details")`. The destination displays the same preview
-state and has its own navigation title.
-
-Example:
+That allows:
 
 ```swift
 NavigationStack {
-    VStack {
-        NavigationLink("Open Details") {
-            VStack {
-                Text("Preview Details")
+    NavigationLink("First") {
+        VStack {
+            Text("First page")
+
+            NavigationLink("Second") {
+                Text("Second page")
             }
-            .navigationTitle("Details")
         }
     }
-    .navigationTitle("My App")
 }
 ```
 
+and deeper supported trees.
+
+Nested destinations keep using the same portable Preview IR and the same signed
+runtime. They can also contain already-supported state-backed Text, TextField,
+Toggle, Picker, and constrained actionable Buttons.
+
+Primitive source `@State` declarations are carried into each destination parse,
+so a deeply nested page can reference the same runtime PreviewStateStore.
+
+A nesting-depth guard is included to prevent pathological recursive preview
+input from recursing indefinitely.
+
 ## Next preview layers
 
-1. nested NavigationLink destinations
-2. alternative NavigationLink destination initializer forms
-3. sheets / presentation state
-4. animation and transitions
-5. richer control styles
-6. iPad side-by-side editor/preview layout
+1. alternative NavigationLink initializer forms
+2. sheets / presentation state
+3. animation and transitions
+4. richer control styles
+5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Navigation titles remain ordinary portable Preview modifiers. The project and
-workspace core do not depend on SwiftUI navigation APIs, and navigation
-destinations remain parsed through the same safe provider stack rather than
-executing arbitrary source code.
+Nested destinations are still parsed, lowered, and validated. They are never
+executed as arbitrary Swift source. ProjectStore, ProjectWorkspace,
+ProjectSession, and the generic plugin core remain independent from SwiftUI
+navigation implementation details.

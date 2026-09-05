@@ -37,6 +37,25 @@ final class SwiftUINavigationPreviewProvider: PreviewProvider {
     func makePreview(
         _ request: PreviewRequest
     ) throws -> PreviewProviderResult {
+        try makePreview(
+            request,
+            navigationDepth: 0
+        )
+    }
+
+    private func makePreview(
+        _ request: PreviewRequest,
+        navigationDepth: Int
+    ) throws -> PreviewProviderResult {
+        guard navigationDepth <= 16 else {
+            return diagnosticResult(
+                PreviewNavigationError.maximumDepthExceeded,
+                filePath: request.entryFilePath ??
+                    request.files.first?.path ??
+                    "Preview.swift"
+            )
+        }
+
         guard let selectedIndex = selectedFileIndex(
             in: request
         ) else {
@@ -86,7 +105,8 @@ final class SwiftUINavigationPreviewProvider: PreviewProvider {
                 rewrite.links,
                 statePrelude: rewrite.statePrelude,
                 originalPath: selectedFile.path,
-                request: request
+                request: request,
+                navigationDepth: navigationDepth
             )
 
             return PreviewProviderResult(
@@ -128,7 +148,8 @@ final class SwiftUINavigationPreviewProvider: PreviewProvider {
         _ links: [PreviewNavigationLinkSpec],
         statePrelude: String,
         originalPath: String,
-        request: PreviewRequest
+        request: PreviewRequest,
+        navigationDepth: Int
     ) throws -> [String: PreviewNavigationDestination] {
         var result: [String: PreviewNavigationDestination] = [:]
 
@@ -141,7 +162,7 @@ final class SwiftUINavigationPreviewProvider: PreviewProvider {
             }
             """
 
-            let destinationResult = try base.makePreview(
+            let destinationResult = try makePreview(
                 PreviewRequest(
                     files: [
                         PreviewSourceFile(
@@ -152,7 +173,8 @@ final class SwiftUINavigationPreviewProvider: PreviewProvider {
                     entryFilePath: originalPath,
                     platform: request.platform,
                     deviceFamily: request.deviceFamily
-                )
+                ),
+                navigationDepth: navigationDepth + 1
             )
 
             guard let destinationDocument = destinationResult.document,
@@ -331,6 +353,7 @@ private struct PreviewNavigationRewrite {
 private enum PreviewNavigationError: Error {
     case malformedLink
     case malformedDestination(String)
+    case maximumDepthExceeded
     case invalidDestination(
         title: String,
         message: String
@@ -345,6 +368,9 @@ extension PreviewNavigationError: LocalizedError {
 
         case .malformedDestination(let title):
             return "NavigationLink '\(title)' has a malformed destination closure."
+
+        case .maximumDepthExceeded:
+            return "NavigationLink preview exceeded the maximum supported nesting depth."
 
         case .invalidDestination(
             let title,
