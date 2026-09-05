@@ -232,7 +232,8 @@ final class PreviewStateTests: XCTestCase {
                 "status",
                 "count",
                 "name",
-                "enabled"
+                "enabled",
+                "showingInfo"
             ]
         )
     }
