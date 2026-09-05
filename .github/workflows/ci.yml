@@ -22,45 +22,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install XcodeGen
-        run: |
-          brew install xcodegen
+        run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: |
-          xcodegen generate
+        run: xcodegen generate
 
       - name: Show Xcode version
         run: |
           xcodebuild -version
           xcrun simctl list devices available
 
-      - name: Select available iOS Simulator
+      - name: Select iOS Simulator
         id: simulator
         shell: bash
         run: |
           set -euo pipefail
-
-          SIM_UDID="$(
-            xcrun simctl list devices available -j | python3 -c '
-import json
-import sys
-
-data = json.load(sys.stdin)
-devices = data.get("devices", {})
-
-for runtime, runtime_devices in devices.items():
-    if "iOS" not in runtime:
-        continue
-
-    for device in runtime_devices:
-        if device.get("isAvailable") and device.get("udid"):
-            print(device["udid"])
-            raise SystemExit(0)
-
-raise SystemExit("No available iOS Simulator found.")
-'
-          )"
-
+          SIM_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(device["udid"] for runtime,devices in data["devices"].items() if "iOS" in runtime for device in devices if device.get("isAvailable") and device.get("udid")))')
           echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
           echo "Using simulator: $SIM_UDID"
 
@@ -68,7 +45,6 @@ raise SystemExit("No available iOS Simulator found.")
         shell: bash
         run: |
           set -euo pipefail
-
           xcodebuild test \
             -project iSwiftCode.xcodeproj \
             -scheme iSwiftCode \
