@@ -14,108 +14,76 @@ App Preview keeps three separate product paths:
 - TextField / Toggle / Picker bindings
 - constrained Button action runtime
 - NavigationStack / NavigationLink
-- labeled and nested NavigationLink forms
+- labeled + nested NavigationLink forms
 - navigationTitle
+- `.sheet(isPresented:)`
+- built-in multi-page + sheet demo
 
-## Sheet presentation — current batch
+## Sheet onDismiss — current batch
 
-The Preview IR now carries a portable presentation modifier:
-
-```text
-PreviewModifier.sheet
-├─ isPresented: PreviewBindingReference
-└─ content: PreviewNode
-```
-
-Supported first form:
-
-```swift
-@State private var showingDetails = false
-
-Button("Show") {
-    showingDetails = true
-}
-.sheet(isPresented: $showingDetails) {
-    VStack {
-        Text("Details")
-
-        Button("Close") {
-            showingDetails = false
-        }
-    }
-}
-```
-
-Pipeline:
-
-```text
-.sheet(isPresented: $state) source
-        ↓
-SwiftUISheetPreviewProvider
-        ↓
-validated Bool state binding
-        ↓
-portable PreviewModifier.sheet
-        ↓
-signed Preview Runtime
-        ↓
-native SwiftUI sheet
-```
-
-Sheet content is parsed through the same safe preview stack and shares the same
-PreviewStateStore at runtime. It can therefore use state-backed Text, controls,
-Picker, actionable Buttons, navigation, and even another supported sheet.
-
-Unknown state references and non-Bool `isPresented` bindings produce preview
-diagnostics.
-
-## Current limitation
-
-This first presentation pass supports exactly:
-
-```swift
-.sheet(isPresented: $state) { ... }
-```
-
-`onDismiss:`, `.sheet(item:)`, custom detents, popovers, and fullScreenCover are
-reserved for later presentation passes.
-
-## Built-in template integration — current batch
-
-The built-in SwiftUI Preview template now demonstrates the sheet runtime directly:
+App Preview now supports the constrained dismissal form:
 
 ```swift
 @State private var showingInfo = false
+@State private var status = "Open"
 
-Button("Open Sheet") {
-    showingInfo = true
-}
-.sheet(isPresented: $showingInfo) {
-    VStack {
-        Text("Sheet Preview")
-
-        Button("Close") {
-            showingInfo = false
+Text("Root")
+    .sheet(
+        isPresented: $showingInfo,
+        onDismiss: {
+            status = "Closed"
         }
+    ) {
+        Text("Info")
     }
-}
 ```
 
-The template keeps the existing TextField, Toggle, Button actions, shared state,
-NavigationLink, and navigationTitle examples. Sheet content reads the same
-`name` and `count` preview state, so a new project demonstrates navigation and
-presentation together without introducing a second state model.
+The dismissal closure is never executed as arbitrary Swift. The provider lowers
+the already-approved mutation subset into `PreviewActionProgram`:
+
+```text
+onDismiss source
+    ↓
+set / add / subtract / toggle lowering
+    ↓
+PreviewActionValidator
+    ↓
+PreviewModifier.sheetWithOnDismiss
+    ↓
+signed Preview Runtime
+    ↓
+PreviewStateStore.perform(...)
+```
+
+Supported dismissal mutations match the existing Button action model:
+
+```swift
+status = "Closed"
+enabled = false
+count = 10
+count += 1
+count -= 1
+enabled.toggle()
+```
+
+Unknown state names, incompatible state types, and unsupported statements
+produce diagnostics before the runtime receives the presentation IR.
+
+The original `.sheet(isPresented:)` portable case is intentionally preserved
+unchanged for backward compatibility.
 
 ## Next preview layers
 
-1. `.sheet(onDismiss:)` support
-2. `.fullScreenCover(isPresented:)`
-3. animation / transitions
-4. richer control styles
-5. iPad side-by-side editor/preview layout
+1. `.fullScreenCover(isPresented:)`
+2. default template onDismiss example
+3. `.sheet(item:)`
+4. animation / transitions
+5. richer control styles
+6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Presentation source is lowered to portable IR and validated state references.
-The generic project/workspace/plugin core never executes arbitrary presentation
-closures or depends directly on SwiftUI sheet APIs.
+Presentation callbacks stay inside the same constrained `PreviewActionProgram`
+model already used by Buttons. Arbitrary Swift closures are not executed by the
+Preview Runtime, and the generic project/workspace/plugin core remains
+independent from SwiftUI presentation APIs.

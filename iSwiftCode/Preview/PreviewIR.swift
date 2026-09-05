@@ -138,6 +138,16 @@ enum PreviewModifier: Equatable, Sendable {
         content: PreviewNode
     )
 
+    /// Sheet presentation with a constrained dismissal action.
+    ///
+    /// The runtime never receives an executable Swift closure. Providers lower
+    /// supported dismissal mutations to PreviewActionProgram first.
+    case sheetWithOnDismiss(
+        isPresented: PreviewBindingReference,
+        onDismiss: PreviewActionProgram,
+        content: PreviewNode
+    )
+
     case stackSpacing(Double)
     case horizontalAlignment(PreviewHorizontalAlignment)
     case verticalAlignment(PreviewVerticalAlignment)

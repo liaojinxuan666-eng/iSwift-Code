@@ -165,6 +165,13 @@ final class SwiftUISheetPreviewProvider: PreviewProvider {
                 )
             }
 
+            if let onDismiss = spec.onDismiss {
+                try PreviewActionValidator.validate(
+                    onDismiss,
+                    definitions: definitions
+                )
+            }
+
             let contentSource = """
             \(statePrelude)
 
@@ -203,6 +210,7 @@ final class SwiftUISheetPreviewProvider: PreviewProvider {
 
             result[spec.marker] = PreviewSheetResolved(
                 stateName: spec.stateName,
+                onDismiss: spec.onDismiss,
                 content: unwrapContentWrapper(
                     contentDocument.root
                 )
@@ -315,10 +323,20 @@ final class SwiftUISheetPreviewProvider: PreviewProvider {
                     return modifier
                 }
 
+                let reference = PreviewBindingReference(
+                    stateName: sheet.stateName
+                )
+
+                if let onDismiss = sheet.onDismiss {
+                    return .sheetWithOnDismiss(
+                        isPresented: reference,
+                        onDismiss: onDismiss,
+                        content: sheet.content
+                    )
+                }
+
                 return .sheet(
-                    isPresented: PreviewBindingReference(
-                        stateName: sheet.stateName
-                    ),
+                    isPresented: reference,
                     content: sheet.content
                 )
             }
@@ -351,12 +369,14 @@ final class SwiftUISheetPreviewProvider: PreviewProvider {
 
 private struct PreviewSheetResolved {
     let stateName: String
+    let onDismiss: PreviewActionProgram?
     let content: PreviewNode
 }
 
 private struct PreviewSheetSpec {
     let marker: String
     let stateName: String
+    let onDismiss: PreviewActionProgram?
     let contentSource: String
 }
 
@@ -371,6 +391,7 @@ private enum PreviewSheetError: Error {
     case malformedContent(String)
     case unknownState(String)
     case requiresBoolState(String)
+    case unsupportedOnDismissAction(String)
     case invalidContent(
         stateName: String,
         message: String
@@ -382,7 +403,7 @@ extension PreviewSheetError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .malformedSheet:
-            return "Malformed sheet preview. Use .sheet(isPresented: $state) { ... }."
+            return "Malformed sheet preview. Use .sheet(isPresented: $state) { ... } or .sheet(isPresented: $state, onDismiss: { ... }) { ... }."
 
         case .malformedContent(let stateName):
             return "Sheet bound to '\(stateName)' has a malformed content closure."
@@ -392,6 +413,9 @@ extension PreviewSheetError: LocalizedError {
 
         case .requiresBoolState(let stateName):
             return "Sheet isPresented binding '\(stateName)' must reference Bool @State."
+
+        case .unsupportedOnDismissAction(let statement):
+            return "Sheet onDismiss contains an unsupported App Preview action: \(statement)"
 
         case .invalidContent(
             let stateName,
@@ -432,6 +456,7 @@ private struct PreviewSheetSourceRewriter {
                 PreviewSheetSpec(
                     marker: marker,
                     stateName: parsed.stateName,
+                    onDismiss: parsed.onDismiss,
                     contentSource: parsed.content
                 )
             )
@@ -502,6 +527,7 @@ private struct PreviewSheetSourceRewriter {
         startingAt start: String.Index
     ) throws -> (
         stateName: String,
+        onDismiss: PreviewActionProgram?,
         content: String,
         end: String.Index
     ) {
@@ -524,9 +550,10 @@ private struct PreviewSheetSourceRewriter {
         let header = String(
             source[headerStart..<closeParen]
         )
-        let stateName = try parseStateName(
+        let parsedHeader = try parseHeader(
             header
         )
+        let stateName = parsedHeader.stateName
 
         cursor = source.index(after: closeParen)
         skipWhitespace(at: &cursor)
@@ -550,16 +577,20 @@ private struct PreviewSheetSourceRewriter {
 
         return (
             stateName,
+            parsedHeader.onDismiss,
             content,
             source.index(after: closeBrace)
         )
     }
 
-    private func parseStateName(
+    private func parseHeader(
         _ header: String
-    ) throws -> String {
+    ) throws -> (
+        stateName: String,
+        onDismiss: PreviewActionProgram?
+    ) {
         let pattern =
-            #"^\s*isPresented\s*:\s*\$([A-Za-z_][A-Za-z0-9_]*)\s*$"#
+            #"(?s)^\s*isPresented\s*:\s*\$([A-Za-z_][A-Za-z0-9_]*)\s*(?:,\s*onDismiss\s*:\s*\{(.*)\})?\s*$"#
 
         guard let expression = try? NSRegularExpression(
             pattern: pattern
@@ -576,14 +607,412 @@ private struct PreviewSheetSourceRewriter {
             in: header,
             range: matchRange
         ),
-        let range = Range(
+        let stateRange = Range(
             match.range(at: 1),
             in: header
         ) else {
             throw PreviewSheetError.malformedSheet
         }
 
-        return String(header[range])
+        let stateName = String(
+            header[stateRange]
+        )
+
+        guard match.range(at: 2).location != NSNotFound,
+              let dismissRange = Range(
+                  match.range(at: 2),
+                  in: header
+              ) else {
+            return (
+                stateName,
+                nil
+            )
+        }
+
+        let dismissSource = String(
+            header[dismissRange]
+        )
+
+        return (
+            stateName,
+            try parseDismissProgram(
+                dismissSource
+            )
+        )
+    }
+
+    private func parseDismissProgram(
+        _ source: String
+    ) throws -> PreviewActionProgram {
+        let statements = splitActionStatements(
+            source
+        )
+
+        var actions: [PreviewAction] = []
+
+        for statement in statements {
+            if let parsed = parseNumericMutation(
+                statement,
+                operatorPattern: #"\+="#
+            ) {
+                actions.append(
+                    .add(
+                        stateName: parsed.name,
+                        amount: parsed.amount
+                    )
+                )
+                continue
+            }
+
+            if let parsed = parseNumericMutation(
+                statement,
+                operatorPattern: #"-="#
+            ) {
+                actions.append(
+                    .add(
+                        stateName: parsed.name,
+                        amount: -parsed.amount
+                    )
+                )
+                continue
+            }
+
+            if let stateName = parseToggleAction(
+                statement
+            ) {
+                actions.append(
+                    .toggle(
+                        stateName: stateName
+                    )
+                )
+                continue
+            }
+
+            if let parsed = parseSetAction(
+                statement
+            ) {
+                actions.append(
+                    .set(
+                        stateName: parsed.name,
+                        value: parsed.value
+                    )
+                )
+                continue
+            }
+
+            throw PreviewSheetError.unsupportedOnDismissAction(
+                statement
+            )
+        }
+
+        return PreviewActionProgram(
+            actions: actions
+        )
+    }
+
+    private func parseNumericMutation(
+        _ statement: String,
+        operatorPattern: String
+    ) -> (
+        name: String,
+        amount: Double
+    )? {
+        let pattern =
+            #"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*"# +
+            operatorPattern +
+            #"\s*(-?(?:\d+(?:\.\d*)?|\.\d+))\s*$"#
+
+        guard let expression = try? NSRegularExpression(
+            pattern: pattern
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(
+            statement.startIndex..<statement.endIndex,
+            in: statement
+        )
+
+        guard let match = expression.firstMatch(
+            in: statement,
+            range: range
+        ),
+        let nameRange = Range(
+            match.range(at: 1),
+            in: statement
+        ),
+        let amountRange = Range(
+            match.range(at: 2),
+            in: statement
+        ),
+        let amount = Double(
+            statement[amountRange]
+        ) else {
+            return nil
+        }
+
+        return (
+            String(statement[nameRange]),
+            amount
+        )
+    }
+
+    private func parseToggleAction(
+        _ statement: String
+    ) -> String? {
+        let pattern =
+            #"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*toggle\s*\(\s*\)\s*$"#
+
+        guard let expression = try? NSRegularExpression(
+            pattern: pattern
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(
+            statement.startIndex..<statement.endIndex,
+            in: statement
+        )
+
+        guard let match = expression.firstMatch(
+            in: statement,
+            range: range
+        ),
+        let nameRange = Range(
+            match.range(at: 1),
+            in: statement
+        ) else {
+            return nil
+        }
+
+        return String(
+            statement[nameRange]
+        )
+    }
+
+    private func parseSetAction(
+        _ statement: String
+    ) -> (
+        name: String,
+        value: PreviewStateValue
+    )? {
+        let pattern =
+            #"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("(?:\\.|[^"])*"|true|false|-?(?:\d+(?:\.\d*)?|\.\d+))\s*$"#
+
+        guard let expression = try? NSRegularExpression(
+            pattern: pattern
+        ) else {
+            return nil
+        }
+
+        let range = NSRange(
+            statement.startIndex..<statement.endIndex,
+            in: statement
+        )
+
+        guard let match = expression.firstMatch(
+            in: statement,
+            range: range
+        ),
+        let nameRange = Range(
+            match.range(at: 1),
+            in: statement
+        ),
+        let valueRange = Range(
+            match.range(at: 2),
+            in: statement
+        ),
+        let value = parseActionValue(
+            String(statement[valueRange])
+        ) else {
+            return nil
+        }
+
+        return (
+            String(statement[nameRange]),
+            value
+        )
+    }
+
+    private func parseActionValue(
+        _ raw: String
+    ) -> PreviewStateValue? {
+        if raw == "true" {
+            return .bool(true)
+        }
+
+        if raw == "false" {
+            return .bool(false)
+        }
+
+        if raw.first == "\"",
+           raw.last == "\"",
+           raw.count >= 2 {
+            return .string(
+                unescapeActionString(
+                    String(
+                        raw
+                            .dropFirst()
+                            .dropLast()
+                    )
+                )
+            )
+        }
+
+        if let number = Double(raw) {
+            return .number(number)
+        }
+
+        return nil
+    }
+
+    private func splitActionStatements(
+        _ body: String
+    ) -> [String] {
+        var result: [String] = []
+        var current = ""
+        var index = body.startIndex
+        var inString = false
+        var escaped = false
+        var inLineComment = false
+
+        func flush(
+            _ value: inout String,
+            into result: inout [String]
+        ) {
+            let trimmed = value
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+
+            if !trimmed.isEmpty {
+                result.append(trimmed)
+            }
+
+            value = ""
+        }
+
+        while index < body.endIndex {
+            let character = body[index]
+
+            if inLineComment {
+                if character == "\n" {
+                    inLineComment = false
+                    flush(
+                        &current,
+                        into: &result
+                    )
+                }
+
+                index = body.index(
+                    after: index
+                )
+                continue
+            }
+
+            if inString {
+                current.append(character)
+
+                if escaped {
+                    escaped = false
+                } else if character == "\\" {
+                    escaped = true
+                } else if character == "\"" {
+                    inString = false
+                }
+
+                index = body.index(
+                    after: index
+                )
+                continue
+            }
+
+            if character == "\"" {
+                inString = true
+                current.append(character)
+                index = body.index(
+                    after: index
+                )
+                continue
+            }
+
+            if character == "/" {
+                let next = body.index(
+                    after: index
+                )
+
+                if next < body.endIndex,
+                   body[next] == "/" {
+                    inLineComment = true
+                    index = body.index(
+                        after: next
+                    )
+                    continue
+                }
+            }
+
+            if character == "\n" ||
+                character == ";" {
+                flush(
+                    &current,
+                    into: &result
+                )
+            } else {
+                current.append(character)
+            }
+
+            index = body.index(
+                after: index
+            )
+        }
+
+        flush(
+            &current,
+            into: &result
+        )
+
+        return result
+    }
+
+    private func unescapeActionString(
+        _ value: String
+    ) -> String {
+        var result = ""
+        var iterator = value.makeIterator()
+        var escaping = false
+
+        while let character = iterator.next() {
+            if escaping {
+                switch character {
+                case "n":
+                    result.append("\n")
+                case "t":
+                    result.append("\t")
+                case "\"":
+                    result.append("\"")
+                case "\\":
+                    result.append("\\")
+                default:
+                    result.append("\\")
+                    result.append(character)
+                }
+
+                escaping = false
+                continue
+            }
+
+            if character == "\\" {
+                escaping = true
+            } else {
+                result.append(character)
+            }
+        }
+
+        if escaping {
+            result.append("\\")
+        }
+
+        return result
     }
 
     private func statePrelude() -> String {
