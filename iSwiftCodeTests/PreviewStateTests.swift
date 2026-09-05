@@ -221,7 +221,18 @@ final class PreviewStateTests: XCTestCase {
             )
         )
 
-        let result = try preview(source)
+        let result = try SwiftUIFullScreenCoverItemPreviewProvider()
+            .makePreview(
+                PreviewRequest(
+                    files: [
+                        PreviewSourceFile(
+                            path: "ContentView.swift",
+                            contents: source
+                        )
+                    ],
+                    entryFilePath: "ContentView.swift"
+                )
+            )
 
         XCTAssertTrue(result.succeeded)
         XCTAssertEqual(
@@ -234,7 +245,9 @@ final class PreviewStateTests: XCTestCase {
                 "name",
                 "enabled",
                 "showingInfo",
-                "showingFullScreen"
+                "showingFullScreen",
+                "selectedSheetItem",
+                "selectedFullScreenItem"
             ]
         )
     }

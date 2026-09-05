@@ -118,6 +118,8 @@ enum BuiltInProjectTemplates {
                     @State private var enabled = true
                     @State private var showingInfo = false
                     @State private var showingFullScreen = false
+                    @State private var selectedSheetItem: String? = nil
+                    @State private var selectedFullScreenItem: String? = nil
 
                     var body: some View {
                         NavigationStack {
@@ -208,6 +210,42 @@ enum BuiltInProjectTemplates {
 
                                         Button("Close Full Screen") {
                                             showingFullScreen = false
+                                        }
+                                    }
+                                    .padding(20)
+                                }
+
+                                Button("Open Item Sheet") {
+                                    selectedSheetItem = "Sheet Item"
+                                }
+                                .sheet(item: $selectedSheetItem) { item in
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Item Sheet Preview")
+                                            .font(.title2)
+
+                                        Text(item)
+                                            .font(.headline)
+
+                                        Button("Close Item Sheet") {
+                                            selectedSheetItem = nil
+                                        }
+                                    }
+                                    .padding(20)
+                                }
+
+                                Button("Open Item Full Screen") {
+                                    selectedFullScreenItem = "Full Screen Item"
+                                }
+                                .fullScreenCover(item: $selectedFullScreenItem) { item in
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Item Full Screen Preview")
+                                            .font(.title2)
+
+                                        Text(item)
+                                            .font(.headline)
+
+                                        Button("Close Item Full Screen") {
+                                            selectedFullScreenItem = nil
                                         }
                                     }
                                     .padding(20)

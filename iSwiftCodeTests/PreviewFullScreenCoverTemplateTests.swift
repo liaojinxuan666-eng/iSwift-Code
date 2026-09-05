@@ -33,7 +33,7 @@ final class PreviewFullScreenCoverTemplateTests: XCTestCase {
     private func preview(
         _ source: String
     ) throws -> PreviewProviderResult {
-        try SwiftUIFullScreenCoverOnDismissPreviewProvider()
+        try SwiftUIFullScreenCoverItemPreviewProvider()
             .makePreview(
                 PreviewRequest(
                     files: [
@@ -106,7 +106,9 @@ final class PreviewFullScreenCoverTemplateTests: XCTestCase {
                 "name",
                 "enabled",
                 "showingInfo",
-                "showingFullScreen"
+                "showingFullScreen",
+                "selectedSheetItem",
+                "selectedFullScreenItem"
             ]
         )
     }
