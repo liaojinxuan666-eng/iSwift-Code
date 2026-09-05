@@ -13,18 +13,12 @@ enum PluginRegistryError: Error, Equatable, Sendable {
 extension PluginRegistryError: LocalizedError {
     var errorDescription: String? {
         switch self {
-        case .invalidManifest(let error):
-            return error.localizedDescription
-        case .duplicateIdentifier(let identifier):
-            return "A plugin with identifier '\(identifier)' is already registered."
-        case .incompatibleAPIVersion(let expected, let found):
-            return "Plugin API version \(found) is incompatible with host API version \(expected)."
-        case .pluginNotFound(let identifier):
-            return "Plugin '\(identifier)' is not registered."
-        case .pluginDisabled(let identifier):
-            return "Plugin '\(identifier)' is disabled."
-        case .capabilityMismatch(let plugin, let required):
-            return "Plugin '\(plugin)' does not provide capability '\(required.rawValue)'."
+        case .invalidManifest(let error): return error.localizedDescription
+        case .duplicateIdentifier(let identifier): return "A plugin with identifier '\(identifier)' is already registered."
+        case .incompatibleAPIVersion(let expected, let found): return "Plugin API version \(found) is incompatible with host API version \(expected)."
+        case .pluginNotFound(let identifier): return "Plugin '\(identifier)' is not registered."
+        case .pluginDisabled(let identifier): return "Plugin '\(identifier)' is disabled."
+        case .capabilityMismatch(let plugin, let required): return "Plugin '\(plugin)' does not provide capability '\(required.rawValue)'."
         case .missingPermissions(let plugin, let permissions):
             let names = permissions.map(\.rawValue).sorted().joined(separator: ", ")
             return "Plugin '\(plugin)' is missing required permissions: \(names)."
@@ -32,11 +26,6 @@ extension PluginRegistryError: LocalizedError {
     }
 }
 
-/// In-memory registry for the first plugin API.
-///
-/// The registry owns lifecycle state and enforces manifest compatibility,
-/// provider discovery, and permission grants. Host-service backends are bound
-/// only when a plugin activates.
 final class PluginRegistry {
     static let hostAPIVersion = PluginManifest.currentAPIVersion
 
@@ -45,94 +34,65 @@ final class PluginRegistry {
     private var activeIdentifiers: Set<String> = []
 
     var manifests: [PluginManifest] {
-        plugins.values
-            .map(\.manifest)
-            .sorted { $0.identifier < $1.identifier }
+        plugins.values.map(\.manifest).sorted { $0.identifier < $1.identifier }
     }
 
     func register(_ plugin: ISwiftPlugin, enabled: Bool = true) throws {
         let manifest = plugin.manifest
-
-        do {
-            try manifest.validate()
-        } catch let error as PluginManifestValidationError {
-            throw PluginRegistryError.invalidManifest(error)
-        }
+        do { try manifest.validate() }
+        catch let error as PluginManifestValidationError { throw PluginRegistryError.invalidManifest(error) }
 
         guard manifest.apiVersion == Self.hostAPIVersion else {
-            throw PluginRegistryError.incompatibleAPIVersion(
-                expected: Self.hostAPIVersion,
-                found: manifest.apiVersion
-            )
+            throw PluginRegistryError.incompatibleAPIVersion(expected: Self.hostAPIVersion, found: manifest.apiVersion)
         }
-
         guard plugins[manifest.identifier] == nil else {
             throw PluginRegistryError.duplicateIdentifier(manifest.identifier)
         }
-
         plugins[manifest.identifier] = plugin
-        if enabled {
-            enabledIdentifiers.insert(manifest.identifier)
-        }
+        if enabled { enabledIdentifiers.insert(manifest.identifier) }
     }
 
     func unregister(identifier: String) throws {
-        guard let plugin = plugins[identifier] else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
         if activeIdentifiers.contains(identifier) {
             plugin.deactivate()
             activeIdentifiers.remove(identifier)
         }
-
         enabledIdentifiers.remove(identifier)
         plugins.removeValue(forKey: identifier)
     }
 
-    func plugin(identifier: String) -> ISwiftPlugin? {
-        plugins[identifier]
-    }
-
-    func manifest(identifier: String) -> PluginManifest? {
-        plugins[identifier]?.manifest
-    }
-
-    func manifests(capability: PluginCapability) -> [PluginManifest] {
-        manifests.filter { $0.capabilities.contains(capability) }
-    }
+    func plugin(identifier: String) -> ISwiftPlugin? { plugins[identifier] }
+    func manifest(identifier: String) -> PluginManifest? { plugins[identifier]?.manifest }
+    func manifests(capability: PluginCapability) -> [PluginManifest] { manifests.filter { $0.capabilities.contains(capability) } }
 
     func compilerProviders(enabledOnly: Bool = true) -> [any CompilerProvider] {
-        plugins.values
-            .compactMap { plugin -> (any CompilerProvider)? in
-                guard let provider = plugin as? any CompilerProvider else { return nil }
-                if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) {
-                    return nil
-                }
-                return provider
-            }
-            .sorted { $0.manifest.identifier < $1.manifest.identifier }
+        plugins.values.compactMap { plugin in
+            guard let provider = plugin as? any CompilerProvider else { return nil }
+            if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) { return nil }
+            return provider
+        }.sorted { $0.manifest.identifier < $1.manifest.identifier }
     }
 
     func aiProviders(enabledOnly: Bool = true) -> [any AIProvider] {
-        plugins.values
-            .compactMap { plugin -> (any AIProvider)? in
-                guard let provider = plugin as? any AIProvider else { return nil }
-                if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) {
-                    return nil
-                }
-                return provider
-            }
-            .sorted { $0.manifest.identifier < $1.manifest.identifier }
+        plugins.values.compactMap { plugin in
+            guard let provider = plugin as? any AIProvider else { return nil }
+            if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) { return nil }
+            return provider
+        }.sorted { $0.manifest.identifier < $1.manifest.identifier }
+    }
+
+    func previewProviders(enabledOnly: Bool = true) -> [any PreviewProvider] {
+        plugins.values.compactMap { plugin in
+            guard let provider = plugin as? any PreviewProvider else { return nil }
+            if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) { return nil }
+            return provider
+        }.sorted { $0.manifest.identifier < $1.manifest.identifier }
     }
 
     func compilerProvider(identifier: String) throws -> any CompilerProvider {
-        guard let plugin = plugins[identifier] else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-        guard enabledIdentifiers.contains(identifier) else {
-            throw PluginRegistryError.pluginDisabled(identifier)
-        }
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
+        guard enabledIdentifiers.contains(identifier) else { throw PluginRegistryError.pluginDisabled(identifier) }
         guard let provider = plugin as? any CompilerProvider else {
             throw PluginRegistryError.capabilityMismatch(plugin: identifier, required: .compiler)
         }
@@ -140,38 +100,32 @@ final class PluginRegistry {
     }
 
     func aiProvider(identifier: String) throws -> any AIProvider {
-        guard let plugin = plugins[identifier] else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-        guard enabledIdentifiers.contains(identifier) else {
-            throw PluginRegistryError.pluginDisabled(identifier)
-        }
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
+        guard enabledIdentifiers.contains(identifier) else { throw PluginRegistryError.pluginDisabled(identifier) }
         guard let provider = plugin as? any AIProvider else {
             throw PluginRegistryError.capabilityMismatch(plugin: identifier, required: .aiAssistant)
         }
         return provider
     }
 
+    func previewProvider(identifier: String) throws -> any PreviewProvider {
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
+        guard enabledIdentifiers.contains(identifier) else { throw PluginRegistryError.pluginDisabled(identifier) }
+        guard let provider = plugin as? any PreviewProvider else {
+            throw PluginRegistryError.capabilityMismatch(plugin: identifier, required: .preview)
+        }
+        return provider
+    }
+
     func state(identifier: String) throws -> PluginLifecycleState {
-        guard plugins[identifier] != nil else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-        if activeIdentifiers.contains(identifier) {
-            return .active
-        }
+        guard plugins[identifier] != nil else { throw PluginRegistryError.pluginNotFound(identifier) }
+        if activeIdentifiers.contains(identifier) { return .active }
         return enabledIdentifiers.contains(identifier) ? .enabled : .disabled
     }
 
     func setEnabled(_ enabled: Bool, identifier: String) throws {
-        guard let plugin = plugins[identifier] else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-
-        if enabled {
-            enabledIdentifiers.insert(identifier)
-            return
-        }
-
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
+        if enabled { enabledIdentifiers.insert(identifier); return }
         if activeIdentifiers.contains(identifier) {
             plugin.deactivate()
             activeIdentifiers.remove(identifier)
@@ -184,29 +138,14 @@ final class PluginRegistry {
         grantedPermissions: Set<PluginPermission>,
         serviceBackends: PluginHostServiceBackends = .empty
     ) throws {
-        guard let plugin = plugins[identifier] else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-        guard enabledIdentifiers.contains(identifier) else {
-            throw PluginRegistryError.pluginDisabled(identifier)
-        }
-
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
+        guard enabledIdentifiers.contains(identifier) else { throw PluginRegistryError.pluginDisabled(identifier) }
         let required = plugin.manifest.requiredPermissions
         let missing = required.subtracting(grantedPermissions)
         guard missing.isEmpty else {
-            throw PluginRegistryError.missingPermissions(
-                plugin: identifier,
-                permissions: missing
-            )
+            throw PluginRegistryError.missingPermissions(plugin: identifier, permissions: missing)
         }
-
-        if activeIdentifiers.contains(identifier) {
-            return
-        }
-
-        // API v1 has required permissions only. Even if a caller accidentally
-        // supplies extra grants, a plugin receives only permissions it declared
-        // in its manifest. Future optional permissions can extend this rule.
+        if activeIdentifiers.contains(identifier) { return }
         let effectivePermissions = grantedPermissions.intersection(required)
         let context = PluginHostContext(
             pluginIdentifier: identifier,
@@ -218,13 +157,8 @@ final class PluginRegistry {
     }
 
     func deactivate(identifier: String) throws {
-        guard let plugin = plugins[identifier] else {
-            throw PluginRegistryError.pluginNotFound(identifier)
-        }
-        guard activeIdentifiers.contains(identifier) else {
-            return
-        }
-
+        guard let plugin = plugins[identifier] else { throw PluginRegistryError.pluginNotFound(identifier) }
+        guard activeIdentifiers.contains(identifier) else { return }
         plugin.deactivate()
         activeIdentifiers.remove(identifier)
     }

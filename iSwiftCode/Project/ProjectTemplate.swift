@@ -1,9 +1,5 @@
 import Foundation
 
-/// Portable project creation template.
-///
-/// A template describes initial project metadata and files only. It does not
-/// own compiler/provider selection and is not tied to a specific editor UI.
 struct ProjectTemplate: Identifiable, Sendable {
     let id: String
     let displayName: String
@@ -28,33 +24,18 @@ struct ProjectTemplate: Identifiable, Sendable {
         self.descriptorAttributes = descriptorAttributes
     }
 
-    func instantiate(
-        projectIdentifier: String,
-        projectDisplayName: String
-    ) -> (
-        descriptor: ProjectDescriptor,
-        initialFiles: [WorkspacePath: Data]
-    ) {
+    func instantiate(projectIdentifier: String, projectDisplayName: String) -> (descriptor: ProjectDescriptor, initialFiles: [WorkspacePath: Data]) {
         let descriptor = ProjectDescriptor(
             identifier: projectIdentifier,
             displayName: projectDisplayName,
             entryFilePath: entryFilePath,
-            attributes: descriptorAttributes.merging(
-                ["template": id],
-                uniquingKeysWith: { _, new in new }
-            )
+            attributes: descriptorAttributes.merging(["template": id], uniquingKeysWith: { _, new in new })
         )
 
-        let files = Dictionary(
-            uniqueKeysWithValues: initialTextFiles.map { path, text in
-                let expanded = text.replacingOccurrences(
-                    of: "{{PROJECT_NAME}}",
-                    with: projectDisplayName
-                )
-                return (path, Data(expanded.utf8))
-            }
-        )
-
+        let files = Dictionary(uniqueKeysWithValues: initialTextFiles.map { path, text in
+            let expanded = text.replacingOccurrences(of: "{{PROJECT_NAME}}", with: projectDisplayName)
+            return (path, Data(expanded.utf8))
+        })
         return (descriptor, files)
     }
 }
@@ -78,18 +59,40 @@ enum BuiltInProjectTemplates {
             print("Hello from iSwift Code")
             """
         ],
-        descriptorAttributes: [
-            "language": "swift",
-            "projectKind": "console"
-        ]
+        descriptorAttributes: ["language": "swift", "projectKind": "console"]
     )
 
-    static let all: [ProjectTemplate] = [
-        swiftConsole,
-        empty
-    ]
+    static let swiftUIPreview = ProjectTemplate(
+        id: "swiftui-preview",
+        displayName: "SwiftUI Preview",
+        summary: "A SwiftUI-style project for the signed App Preview runtime.",
+        entryFilePath: try! WorkspacePath("ContentView.swift"),
+        initialTextFiles: [
+            try! WorkspacePath("ContentView.swift"): """
+            import SwiftUI
 
-    static func template(id: String) -> ProjectTemplate? {
-        all.first { $0.id == id }
-    }
+            struct ContentView: View {
+                var body: some View {
+                    NavigationStack {
+                        VStack {
+                            Image(systemName: "swift")
+                            Text("{{PROJECT_NAME}}")
+                            Text("Live App Preview")
+                            HStack {
+                                Button("Run") { }
+                                Spacer()
+                                Text("0.1.3")
+                            }
+                        }
+                    }
+                }
+            }
+            """
+        ],
+        descriptorAttributes: ["language": "swift", "projectKind": "app-preview", "previewProvider": "swiftui"]
+    )
+
+    static let all: [ProjectTemplate] = [swiftUIPreview, swiftConsole, empty]
+
+    static func template(id: String) -> ProjectTemplate? { all.first { $0.id == id } }
 }

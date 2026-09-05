@@ -3,6 +3,7 @@ import Foundation
 enum PluginCapability: String, Codable, CaseIterable, Hashable, Sendable {
     case compiler
     case aiAssistant
+    case preview
     case editor
     case build
     case projectTemplate
@@ -12,39 +13,19 @@ enum PluginCapability: String, Codable, CaseIterable, Hashable, Sendable {
 }
 
 enum PluginExecutionMode: String, Codable, CaseIterable, Hashable, Sendable {
-    /// Code that ships with iSwift Code and is linked/bundled with the app.
     case builtIn
-
-    /// Portable plugin code intended to execute inside a WebAssembly sandbox.
     case wasm
-
-    /// A provider implemented by a remote service, such as an AI coding service.
     case remoteService
 }
 
 enum PluginPermission: String, Codable, CaseIterable, Hashable, Sendable {
-    /// Read files inside the currently opened iSwift Code workspace.
     case workspaceRead
-
-    /// Create, replace, rename, or delete files inside the current workspace.
     case workspaceWrite
-
-    /// Access network services through host-provided networking APIs.
     case network
-
-    /// Import or export files through host-controlled document access.
     case userFiles
-
-    /// Read or write the clipboard through a host-controlled API.
     case clipboard
-
-    /// Use credentials stored through a host-controlled credential provider.
     case credentials
-
-    /// Read or create build products managed by iSwift Code.
     case buildArtifacts
-
-    /// Ask the host to open an external URL.
     case openExternalURL
 }
 
