@@ -169,10 +169,10 @@ enum BuiltInProjectTemplates {
                                         Text("Preview Details")
                                             .font(.title2)
 
-                                        Text("Hello, \(name)")
+                                        Text("Hello, \\(name)")
                                             .font(.headline)
 
-                                        Text("Count: \(count)")
+                                        Text("Count: \\(count)")
                                             .foregroundStyle(.secondary)
                                     }
                                     .padding(20)
