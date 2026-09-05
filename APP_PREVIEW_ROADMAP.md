@@ -9,59 +9,71 @@ App Preview keeps three separate product paths:
 ## Completed
 
 - portable Preview IR and signed native runtime
-- modifier + stack layout IR
-- Live Preview with unsaved-buffer refresh
+- Live Preview
 - primitive `@State`
 - TextField / Toggle / Picker bindings
 - constrained Button action runtime
 - NavigationStack + NavigationLink
 - navigationTitle
-- multi-page built-in Preview template
+- multi-page template
+- nested NavigationLink destinations
 
-## Nested NavigationLink — current batch
+## NavigationLink labeled initializer — current batch
 
-Navigation destinations are now parsed recursively through the navigation-aware
-provider rather than stopping at the lower-level interactive provider.
-
-That allows:
+The navigation provider now supports both:
 
 ```swift
-NavigationStack {
-    NavigationLink("First") {
-        VStack {
-            Text("First page")
-
-            NavigationLink("Second") {
-                Text("Second page")
-            }
-        }
-    }
+NavigationLink("Details") {
+    Text("Destination")
 }
 ```
 
-and deeper supported trees.
+and:
 
-Nested destinations keep using the same portable Preview IR and the same signed
-runtime. They can also contain already-supported state-backed Text, TextField,
-Toggle, Picker, and constrained actionable Buttons.
+```swift
+NavigationLink(
+    destination: {
+        Text("Destination")
+    },
+    label: {
+        Text("Open")
+    }
+)
+```
 
-Primitive source `@State` declarations are carried into each destination parse,
-so a deeply nested page can reference the same runtime PreviewStateStore.
+Both lower to the same portable `PreviewNode.navigationLink` and therefore use
+the same signed native runtime path.
 
-A nesting-depth guard is included to prevent pathological recursive preview
-input from recursing indefinitely.
+The destination still goes through recursive preview parsing, so state-backed
+content, interactive controls, actionable Buttons, navigation titles, and
+nested NavigationLinks continue to work.
+
+For this first labeled-initializer pass, `label:` intentionally accepts a
+literal `Text("...")` label only. This preserves the current portable IR, whose
+NavigationLink label is represented as a string title, and avoids silently
+dropping arbitrary custom label UI.
+
+## Navigation layer after this batch
+
+The core navigation path now covers:
+
+- NavigationStack
+- literal-title NavigationLink
+- closure-based destination/label initializer
+- nested destinations
+- navigationTitle
+- shared preview state across destinations
 
 ## Next preview layers
 
-1. alternative NavigationLink initializer forms
-2. sheets / presentation state
+1. sheet presentation state
+2. full custom NavigationLink label IR
 3. animation and transitions
 4. richer control styles
 5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Nested destinations are still parsed, lowered, and validated. They are never
-executed as arbitrary Swift source. ProjectStore, ProjectWorkspace,
-ProjectSession, and the generic plugin core remain independent from SwiftUI
-navigation implementation details.
+Navigation source remains lowered to portable IR. Destination closures are
+parsed rather than executed, and unsupported custom labels are rejected instead
+of being executed or silently approximated.

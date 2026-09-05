@@ -364,7 +364,7 @@ extension PreviewNavigationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .malformedLink:
-            return "Malformed NavigationLink preview. Use NavigationLink(\"Title\") { ... }."
+            return "Malformed NavigationLink preview. Use NavigationLink(\"Title\") { ... } or NavigationLink(destination: { ... }, label: { Text(\"Title\") })."
 
         case .malformedDestination(let title):
             return "NavigationLink '\(title)' has a malformed destination closure."
@@ -486,33 +486,46 @@ private struct PreviewNavigationSourceRewriter {
         )
         let headerStart = source.index(after: openParen)
         let header = String(source[headerStart..<closeParen])
-        let title = try parseTitle(header)
 
-        cursor = source.index(after: closeParen)
-        skipWhitespace(at: &cursor)
+        if let title = try? parseTitle(header) {
+            cursor = source.index(after: closeParen)
+            skipWhitespace(at: &cursor)
 
-        guard cursor < source.endIndex,
-              source[cursor] == "{" else {
-            throw PreviewNavigationError
-                .malformedDestination(title)
+            guard cursor < source.endIndex,
+                  source[cursor] == "{" else {
+                throw PreviewNavigationError
+                    .malformedDestination(title)
+            }
+
+            let openBrace = cursor
+            let closeBrace = try matchingDelimiter(
+                from: openBrace,
+                open: "{",
+                close: "}"
+            )
+            let destinationStart = source.index(after: openBrace)
+            let destination = String(
+                source[destinationStart..<closeBrace]
+            )
+
+            return (
+                title,
+                destination,
+                source.index(after: closeBrace)
+            )
         }
 
-        let openBrace = cursor
-        let closeBrace = try matchingDelimiter(
-            from: openBrace,
-            open: "{",
-            close: "}"
-        )
-        let destinationStart = source.index(after: openBrace)
-        let destination = String(
-            source[destinationStart..<closeBrace]
-        )
+        if let labeled = parseLabeledInitializer(
+            header
+        ) {
+            return (
+                labeled.title,
+                labeled.destination,
+                source.index(after: closeParen)
+            )
+        }
 
-        return (
-            title,
-            destination,
-            source.index(after: closeBrace)
-        )
+        throw PreviewNavigationError.malformedLink
     }
 
     private func parseTitle(
@@ -544,6 +557,70 @@ private struct PreviewNavigationSourceRewriter {
 
         return unescapeString(
             String(header[range])
+        )
+    }
+
+    /// Supports the closure-based labeled initializer:
+    ///
+    /// NavigationLink(
+    ///     destination: { ... },
+    ///     label: { Text("Open") }
+    /// )
+    ///
+    /// The first version deliberately keeps the label portable by accepting a
+    /// literal Text label only. Destination content continues through the same
+    /// recursive safe preview pipeline.
+    private func parseLabeledInitializer(
+        _ header: String
+    ) -> (
+        title: String,
+        destination: String
+    )? {
+        let pattern =
+            #"(?s)^\s*destination\s*:\s*\{(.*)\}\s*,\s*label\s*:\s*\{\s*Text\s*\(\s*"((?:\\.|[^"])*)"\s*\)\s*\}\s*$"#
+
+        guard let expression = try? NSRegularExpression(
+            pattern: pattern
+        ) else {
+            return nil
+        }
+
+        let matchRange = NSRange(
+            header.startIndex..<header.endIndex,
+            in: header
+        )
+
+        guard let match = expression.firstMatch(
+            in: header,
+            range: matchRange
+        ),
+        let destinationRange = Range(
+            match.range(at: 1),
+            in: header
+        ),
+        let titleRange = Range(
+            match.range(at: 2),
+            in: header
+        ) else {
+            return nil
+        }
+
+        let destination = String(
+            header[destinationRange]
+        )
+        .trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+
+        guard !destination.isEmpty else {
+            return nil
+        }
+
+        return (
+            unescapeString(
+                String(header[titleRange])
+            ),
+            destination
         )
     }
 
