@@ -16,6 +16,6 @@ struct CodeEditorView: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             }
-            .accessibilityLabel("Swift source editor")
+            .accessibilityLabel("Source editor")
     }
 }
