@@ -115,28 +115,25 @@ final class ProjectSessionViewModelTests: XCTestCase {
         XCTAssertEqual(model.activeFilePath, try WorkspacePath("main.swift"))
     }
 
-    func testEntryFileCannotBeRenamedOrDeletedYet() throws {
+    func testEntryFileCanBeRenamedAndDeleted() throws {
         let model = try makeModel(files: [("main.swift", "print(42)")])
         let main = try WorkspacePath("main.swift")
+        let renamed = try WorkspacePath("renamed.swift")
 
-        XCTAssertThrowsError(
-            try model.renameFile(
-                from: main,
-                to: WorkspacePath("renamed.swift")
-            )
-        ) { error in
-            XCTAssertEqual(
-                error as? ProjectSessionError,
-                .cannotModifyEntryFile(main)
-            )
-        }
+        try model.renameFile(from: main, to: renamed)
 
-        XCTAssertThrowsError(try model.deleteFile(at: main)) { error in
-            XCTAssertEqual(
-                error as? ProjectSessionError,
-                .cannotModifyEntryFile(main)
-            )
-        }
+        XCTAssertEqual(model.entryFilePath, renamed)
+        XCTAssertEqual(model.activeFilePath, renamed)
+        XCTAssertFalse(model.files.contains(main))
+        XCTAssertTrue(model.files.contains(renamed))
+        XCTAssertEqual(model.source, "print(42)")
+
+        try model.deleteFile(at: renamed)
+
+        XCTAssertNil(model.entryFilePath)
+        XCTAssertNil(model.activeFilePath)
+        XCTAssertTrue(model.files.isEmpty)
+        XCTAssertEqual(model.source, "")
     }
 
     func testSnapshotIncludesUnsavedEditorBuffer() throws {
