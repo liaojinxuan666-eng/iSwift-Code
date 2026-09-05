@@ -114,19 +114,25 @@ private struct PreviewNodeView: View {
             var result = view
 
             if frame.width != nil || frame.height != nil {
+                let width: CGFloat? = cgFloat(frame.width)
+                let height: CGFloat? = cgFloat(frame.height)
+
                 result = AnyView(
                     result.frame(
-                        width: frame.width.map(CGFloat.init),
-                        height: frame.height.map(CGFloat.init)
+                        width: width,
+                        height: height
                     )
                 )
             }
 
             if frame.maxWidth != nil || frame.maxHeight != nil {
+                let maxWidth: CGFloat? = dimension(frame.maxWidth)
+                let maxHeight: CGFloat? = dimension(frame.maxHeight)
+
                 result = AnyView(
                     result.frame(
-                        maxWidth: dimension(frame.maxWidth),
-                        maxHeight: dimension(frame.maxHeight)
+                        maxWidth: maxWidth,
+                        maxHeight: maxHeight
                     )
                 )
             }
@@ -147,13 +153,18 @@ private struct PreviewNodeView: View {
         }
     }
 
+    private func cgFloat(_ value: Double?) -> CGFloat? {
+        guard let value else { return nil }
+        return CGFloat(value)
+    }
+
     private func dimension(_ value: PreviewDimension?) -> CGFloat? {
         guard let value else { return nil }
         switch value {
         case .points(let points):
             return CGFloat(points)
         case .infinity:
-            return .infinity
+            return CGFloat.infinity
         }
     }
 
