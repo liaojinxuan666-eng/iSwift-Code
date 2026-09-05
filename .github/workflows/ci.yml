@@ -1,0 +1,54 @@
+name: iSwift Code CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: macos-15
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+
+      - name: Select iOS Simulator
+        id: simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIM_UDID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(device["udid"] for runtime,devices in data["devices"].items() if "iOS" in runtime for device in devices if device.get("isAvailable") and device.get("udid")))')
+          echo "udid=$SIM_UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator: $SIM_UDID"
+
+      - name: Build and run tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project iSwiftCode.xcodeproj \
+            -scheme iSwiftCode \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            ONLY_ACTIVE_ARCH=YES
