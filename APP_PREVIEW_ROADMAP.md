@@ -6,86 +6,74 @@ App Preview keeps three separate product paths:
 
 `Run Code | Preview App | Build IPA`
 
-## Completed
+## Completed before this batch
 
 - generic PreviewProvider and portable Preview IR
 - signed Native SwiftUI Preview Runtime
 - modifier and stack-layout IR
 - inline Live Preview with debounced refresh
 - primitive `@State` model
-- state-backed and interpolated Text
-- Binding-backed TextField and Toggle
+- state-backed/interpolated Text
+- TextField / Toggle bindings
 - Picker + selection bindings
-- constrained PreviewAction IR
+- constrained Button PreviewAction IR
+- actionable Button runtime
 
-## Actionable Button runtime — current batch
+## NavigationLink — current batch
 
-App Preview now lowers a deliberately small Swift Button mutation subset into
-`PreviewActionProgram` and executes it through `PreviewStateStore`.
-
-Supported source forms:
-
-```swift
-count += 1
-count -= 1
-enabled.toggle()
-status = "Done"
-enabled = true
-count = 10
-```
-
-Example:
-
-```swift
-@State private var count = 0
-@State private var enabled = false
-
-Button("Add") {
-    count += 1
-}
-
-Button("Toggle") {
-    enabled.toggle()
-}
-```
-
-Pipeline:
+The Preview IR now has a portable navigation node:
 
 ```text
-Swift Button closure
-        ↓
-Button Action Source Rewriter
-        ↓
-PreviewActionProgram
-        ↓
-PreviewActionValidator
-        ↓
-PreviewNode.actionButton
-        ↓
-Signed Preview Runtime
-        ↓
-PreviewStateStore.perform(...)
-        ↓
-State-backed UI updates immediately
+NavigationStack
+    ↓
+NavigationLink(title, destination IR)
+    ↓
+Signed SwiftUI Preview Runtime
+    ↓
+Native NavigationLink push
 ```
 
-Arbitrary Swift closures are never executed by App Preview. Unsupported
-statements produce a diagnostic. Unknown state names and incompatible mutation
-types are rejected before the program can mutate runtime state.
+Supported first form:
 
-Legacy empty Buttons continue to preview as non-actionable buttons, preserving
-existing behavior and tests.
+```swift
+NavigationStack {
+    NavigationLink("Details") {
+        VStack {
+            Text("Details")
+        }
+    }
+}
+```
+
+The destination is parsed through the same safe PreviewProvider stack. It can
+therefore contain the already-supported Text, stacks, modifiers, state-backed
+Text, TextField, Toggle, Picker, and constrained actionable Buttons.
+
+Primitive `@State` declarations from the source are made available while
+parsing the destination so destination controls/actions can target the same
+PreviewStateStore at runtime.
+
+This batch intentionally does not change the default SwiftUI project template.
+The core navigation path should pass CI first; the template/demo can be upgraded
+after the navigation IR/runtime itself is proven.
+
+## Current limitation
+
+This first navigation lowering handles `NavigationLink("Title") { ... }`.
+Nested NavigationLink lowering inside another destination and the alternative
+`destination:` initializer syntax are reserved for a later navigation pass.
 
 ## Next preview layers
 
-1. navigation destinations + NavigationLink
-2. sheets / presentation state
-3. animation and transitions
-4. richer control styles
-5. iPad side-by-side editor/preview layout
+1. navigationTitle + template/demo integration
+2. nested NavigationLink destinations
+3. sheets / presentation state
+4. animation/transitions
+5. richer control styles
+6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-Button execution remains constrained to portable PreviewAction operations.
-ProjectStore, ProjectWorkspace, ProjectSession, Live Preview scheduling, and the
-generic plugin core never execute arbitrary source code or Swift closures.
+Navigation source parsing stays inside the SwiftUI navigation provider. The
+generic project/workspace/plugin core does not gain SwiftUI navigation types or
+execute destination source directly.

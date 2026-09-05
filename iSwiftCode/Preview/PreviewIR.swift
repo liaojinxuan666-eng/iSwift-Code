@@ -176,6 +176,10 @@ indirect enum PreviewNode: Equatable, Sendable {
     case scrollView(children: [PreviewNode])
     case list(children: [PreviewNode])
     case navigationStack(children: [PreviewNode])
+    case navigationLink(
+        title: String,
+        destination: PreviewNode
+    )
     case modified(base: PreviewNode, modifiers: [PreviewModifier])
 }
 

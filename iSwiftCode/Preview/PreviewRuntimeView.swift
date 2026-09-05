@@ -187,6 +187,21 @@ private struct PreviewNodeView: View {
                 }
             )
 
+        case .navigationLink(
+            let title,
+            let destination
+        ):
+            return AnyView(
+                NavigationLink {
+                    PreviewNodeView(
+                        node: destination,
+                        stateStore: stateStore
+                    )
+                } label: {
+                    Text(title)
+                }
+            )
+
         case .modified(
             let base,
             let modifiers
