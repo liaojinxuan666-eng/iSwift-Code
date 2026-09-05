@@ -80,14 +80,39 @@ This first presentation pass supports exactly:
 `onDismiss:`, `.sheet(item:)`, custom detents, popovers, and fullScreenCover are
 reserved for later presentation passes.
 
+## Built-in template integration — current batch
+
+The built-in SwiftUI Preview template now demonstrates the sheet runtime directly:
+
+```swift
+@State private var showingInfo = false
+
+Button("Open Sheet") {
+    showingInfo = true
+}
+.sheet(isPresented: $showingInfo) {
+    VStack {
+        Text("Sheet Preview")
+
+        Button("Close") {
+            showingInfo = false
+        }
+    }
+}
+```
+
+The template keeps the existing TextField, Toggle, Button actions, shared state,
+NavigationLink, and navigationTitle examples. Sheet content reads the same
+`name` and `count` preview state, so a new project demonstrates navigation and
+presentation together without introducing a second state model.
+
 ## Next preview layers
 
-1. default template sheet demo integration
-2. `.sheet(onDismiss:)` support
-3. `.fullScreenCover(isPresented:)`
-4. animation / transitions
-5. richer control styles
-6. iPad side-by-side editor/preview layout
+1. `.sheet(onDismiss:)` support
+2. `.fullScreenCover(isPresented:)`
+3. animation / transitions
+4. richer control styles
+5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 

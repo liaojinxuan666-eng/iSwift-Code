@@ -116,6 +116,7 @@ enum BuiltInProjectTemplates {
                     @State private var count = 0
                     @State private var name = "iSwift Code"
                     @State private var enabled = true
+                    @State private var showingInfo = false
 
                     var body: some View {
                         NavigationStack {
@@ -163,6 +164,27 @@ enum BuiltInProjectTemplates {
                                 .frame(maxWidth: .infinity)
                                 .background(.blue)
                                 .cornerRadius(14)
+
+                                Button("Open Sheet") {
+                                    showingInfo = true
+                                }
+                                .sheet(isPresented: $showingInfo) {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        Text("Sheet Preview")
+                                            .font(.title2)
+
+                                        Text("Hello, \\(name)")
+                                            .font(.headline)
+
+                                        Text("Count: \\(count)")
+                                            .foregroundStyle(.secondary)
+
+                                        Button("Close") {
+                                            showingInfo = false
+                                        }
+                                    }
+                                    .padding(20)
+                                }
 
                                 NavigationLink("Open Details") {
                                     VStack(alignment: .leading, spacing: 12) {
