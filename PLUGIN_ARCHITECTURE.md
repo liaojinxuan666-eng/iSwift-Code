@@ -2,8 +2,8 @@
 
 Status: **locked foundation for 0.1.2**
 
-The plugin system is designed as a reusable development-platform layer, not as
-an unrestricted dynamic-code loader.
+The plugin system is a reusable development-platform layer, not an unrestricted
+dynamic-code loader.
 
 ## Core rule
 
@@ -41,6 +41,67 @@ Examples:
   expose `formatter` or `languageServer`
 - a Codex-like coding provider is primarily an `aiAssistant` plugin
 - an IPA pipeline component is a `build` plugin
+
+## Provider layer
+
+0.1.2 adds typed provider contracts on top of the generic plugin lifecycle.
+
+### CompilerProvider
+
+Compiler plugins are discovered through `CompilerProvider` rather than by
+hard-coding a concrete compiler class into the editor.
+
+The request model carries:
+
+- operation: `check`, `compile`, or `run`
+- one or more logical source files
+- source language
+- optional entry file
+- optional command-line arguments
+
+The result model carries:
+
+- normalized diagnostics
+- console output
+- optional build artifacts
+- provider metrics
+
+The current `SandboxSwiftCompiler` remains the low-level engine, while
+`SandboxSwiftCompilerProvider` is the first built-in compiler plugin and is now
+the default compiler used by `EditorViewModel`.
+
+The sandbox provider intentionally accepts only one Swift source file today.
+The provider contract itself already supports multiple files so the later
+project system and Clang/LLVM provider do not require another API redesign.
+
+### AIProvider
+
+AI coding services use a separate `AIProvider` contract.
+
+The initial task vocabulary includes:
+
+- chat
+- explain diagnostics
+- generate code
+- edit workspace
+- review workspace
+
+AI responses may include proposed file edits. Applying those edits remains a
+host responsibility; an AI provider does not gain implicit write access simply
+because it returned edits.
+
+A future Codex integration belongs here as a `remoteService` plugin. It will
+request `network`, and only request workspace/credential permissions needed by
+the selected feature.
+
+### WasmPluginLoader
+
+`WasmPluginLoader` is now a reserved host boundary for third-party executable
+plugins. 0.1.2 defines the package and resource-limit contracts but deliberately
+does not ship a WebAssembly runtime yet.
+
+This keeps Wasm execution replaceable while preserving the plugin manifest,
+permissions, lifecycle, and provider APIs.
 
 ## Execution modes
 
@@ -93,14 +154,19 @@ required by its manifest.
 Future host services must check these permissions again at the service boundary;
 activation-time checking is not the only security layer.
 
-## Lifecycle
+## Lifecycle and discovery
 
-The first registry lifecycle is:
+The registry lifecycle remains:
 
 `registered -> enabled -> active`
 
-A plugin can also be disabled or unregistered. Disabling or unregistering an
-active plugin first deactivates it.
+The registry now also performs typed discovery:
+
+- compiler plugins through `compilerProviders()`
+- AI plugins through `aiProviders()`
+
+Disabled providers are hidden from normal discovery unless the caller
+explicitly asks to include them.
 
 The registry owns lifecycle state. Plugins do not get to mark themselves active
 or bypass registration.
@@ -113,20 +179,21 @@ The registry rejects plugins targeting a different API version. Future host
 versions may add compatibility ranges, migrations, or adapters, but plugin code
 must never silently run against an incompatible host API.
 
-## What 0.1.2 foundation deliberately does not implement yet
+## What 0.1.2 deliberately does not implement yet
 
 - downloading/installing plugin bundles
 - WebAssembly execution
 - remote AI HTTP clients
+- Codex authentication
 - Clang/LLVM embedding
-- plugin UI
+- plugin management UI
 - persistent enable/disable state
 - credential storage
 - host filesystem/network service implementations
 - a public plugin marketplace
 
-Those layers will be built on top of the manifest, permission, protocol, and
-registry contracts introduced here.
+Those layers are built on top of the manifest, permission, protocol, registry,
+and provider contracts introduced here.
 
 ## Stock iOS constraint
 

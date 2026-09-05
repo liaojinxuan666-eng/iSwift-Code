@@ -9,9 +9,9 @@ final class EditorViewModel: ObservableObject {
     @Published private(set) var buildSummary = "Ready"
     @Published private(set) var isRunning = false
 
-    private let compiler: any LocalCompilerBackend
+    private let compiler: any CompilerProvider
 
-    init(compiler: any LocalCompilerBackend = SandboxSwiftCompiler()) {
+    init(compiler: any CompilerProvider = SandboxSwiftCompilerProvider()) {
         self.compiler = compiler
         source = Self.welcomeProgram
     }
@@ -21,18 +21,44 @@ final class EditorViewModel: ObservableObject {
         diagnostics = []
         buildSummary = "Compiling locally…"
 
-        let started = Date()
-        let result = compiler.run(source: source)
-        let elapsedMilliseconds = Int(Date().timeIntervalSince(started) * 1_000)
+        let request = CompilerRequest.singleFile(
+            operation: .run,
+            language: .swift,
+            path: "main.swift",
+            source: source
+        )
 
-        diagnostics = result.diagnostics
-        if result.succeeded {
-            consoleOutput = result.output.isEmpty ? "Program finished with no output." : result.output
-            buildSummary = "Succeeded • \(result.instructionCount) instructions • \(elapsedMilliseconds) ms"
-        } else {
-            consoleOutput = result.output.isEmpty ? "Compilation stopped." : result.output
-            buildSummary = "Failed with \(result.diagnostics.count) error(s)"
+        do {
+            let result = try compiler.perform(request)
+            diagnostics = result.diagnostics
+
+            if result.succeeded {
+                consoleOutput = result.output.isEmpty ? "Program finished with no output." : result.output
+
+                var details: [String] = ["Succeeded"]
+                if let instructionCount = result.metrics.instructionCount {
+                    details.append("\(instructionCount) instructions")
+                }
+                if let durationMilliseconds = result.metrics.durationMilliseconds {
+                    details.append("\(durationMilliseconds) ms")
+                }
+                buildSummary = details.joined(separator: " • ")
+            } else {
+                consoleOutput = result.output.isEmpty ? "Compilation stopped." : result.output
+                buildSummary = "Failed with \(result.diagnostics.count) error(s)"
+            }
+        } catch {
+            diagnostics = [
+                CompilerDiagnostic(
+                    severity: .error,
+                    message: error.localizedDescription,
+                    location: .start
+                )
+            ]
+            consoleOutput = "Compilation stopped."
+            buildSummary = "Compiler provider failed"
         }
+
         isRunning = false
     }
 

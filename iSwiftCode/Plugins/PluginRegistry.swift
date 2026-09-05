@@ -6,6 +6,7 @@ enum PluginRegistryError: Error, Equatable, Sendable {
     case incompatibleAPIVersion(expected: Int, found: Int)
     case pluginNotFound(String)
     case pluginDisabled(String)
+    case capabilityMismatch(plugin: String, required: PluginCapability)
     case missingPermissions(plugin: String, permissions: Set<PluginPermission>)
 }
 
@@ -22,6 +23,8 @@ extension PluginRegistryError: LocalizedError {
             return "Plugin '\(identifier)' is not registered."
         case .pluginDisabled(let identifier):
             return "Plugin '\(identifier)' is disabled."
+        case .capabilityMismatch(let plugin, let required):
+            return "Plugin '\(plugin)' does not provide capability '\(required.rawValue)'."
         case .missingPermissions(let plugin, let permissions):
             let names = permissions.map(\.rawValue).sorted().joined(separator: ", ")
             return "Plugin '\(plugin)' is missing required permissions: \(names)."
@@ -87,12 +90,66 @@ final class PluginRegistry {
         plugins.removeValue(forKey: identifier)
     }
 
+    func plugin(identifier: String) -> ISwiftPlugin? {
+        plugins[identifier]
+    }
+
     func manifest(identifier: String) -> PluginManifest? {
         plugins[identifier]?.manifest
     }
 
     func manifests(capability: PluginCapability) -> [PluginManifest] {
         manifests.filter { $0.capabilities.contains(capability) }
+    }
+
+    func compilerProviders(enabledOnly: Bool = true) -> [any CompilerProvider] {
+        plugins.values
+            .compactMap { plugin -> (any CompilerProvider)? in
+                guard let provider = plugin as? any CompilerProvider else { return nil }
+                if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) {
+                    return nil
+                }
+                return provider
+            }
+            .sorted { $0.manifest.identifier < $1.manifest.identifier }
+    }
+
+    func aiProviders(enabledOnly: Bool = true) -> [any AIProvider] {
+        plugins.values
+            .compactMap { plugin -> (any AIProvider)? in
+                guard let provider = plugin as? any AIProvider else { return nil }
+                if enabledOnly, !enabledIdentifiers.contains(provider.manifest.identifier) {
+                    return nil
+                }
+                return provider
+            }
+            .sorted { $0.manifest.identifier < $1.manifest.identifier }
+    }
+
+    func compilerProvider(identifier: String) throws -> any CompilerProvider {
+        guard let plugin = plugins[identifier] else {
+            throw PluginRegistryError.pluginNotFound(identifier)
+        }
+        guard enabledIdentifiers.contains(identifier) else {
+            throw PluginRegistryError.pluginDisabled(identifier)
+        }
+        guard let provider = plugin as? any CompilerProvider else {
+            throw PluginRegistryError.capabilityMismatch(plugin: identifier, required: .compiler)
+        }
+        return provider
+    }
+
+    func aiProvider(identifier: String) throws -> any AIProvider {
+        guard let plugin = plugins[identifier] else {
+            throw PluginRegistryError.pluginNotFound(identifier)
+        }
+        guard enabledIdentifiers.contains(identifier) else {
+            throw PluginRegistryError.pluginDisabled(identifier)
+        }
+        guard let provider = plugin as? any AIProvider else {
+            throw PluginRegistryError.capabilityMismatch(plugin: identifier, required: .aiAssistant)
+        }
+        return provider
     }
 
     func state(identifier: String) throws -> PluginLifecycleState {
