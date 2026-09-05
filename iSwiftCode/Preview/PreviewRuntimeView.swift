@@ -591,6 +591,23 @@ private struct PreviewNodeView: View {
                 }
             )
 
+        case .fullScreenCover(
+            let reference,
+            let content
+        ):
+            return AnyView(
+                view.fullScreenCover(
+                    isPresented: boolBinding(
+                        for: reference.stateName
+                    )
+                ) {
+                    PreviewNodeView(
+                        node: content,
+                        stateStore: stateStore
+                    )
+                }
+            )
+
         case .stackSpacing,
              .horizontalAlignment,
              .verticalAlignment,

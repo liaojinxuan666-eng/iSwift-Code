@@ -17,65 +17,76 @@ App Preview keeps three separate product paths:
 - labeled + nested NavigationLink forms
 - navigationTitle
 - `.sheet(isPresented:)`
+- constrained `.sheet(... onDismiss:)`
 - built-in multi-page + sheet demo
 
-## Sheet onDismiss — current batch
+## Full-screen presentation — current batch
 
-App Preview now supports the constrained dismissal form:
+App Preview now lowers:
 
 ```swift
-@State private var showingInfo = false
-@State private var status = "Open"
+@State private var showingCover = false
 
-Text("Root")
-    .sheet(
-        isPresented: $showingInfo,
-        onDismiss: {
-            status = "Closed"
+Button("Open") {
+    showingCover = true
+}
+.fullScreenCover(isPresented: $showingCover) {
+    VStack {
+        Text("Full Screen")
+
+        Button("Close") {
+            showingCover = false
         }
-    ) {
-        Text("Info")
     }
+}
 ```
 
-The dismissal closure is never executed as arbitrary Swift. The provider lowers
-the already-approved mutation subset into `PreviewActionProgram`:
+into portable presentation IR:
 
 ```text
-onDismiss source
-    ↓
-set / add / subtract / toggle lowering
-    ↓
-PreviewActionValidator
-    ↓
-PreviewModifier.sheetWithOnDismiss
-    ↓
-signed Preview Runtime
-    ↓
-PreviewStateStore.perform(...)
+PreviewModifier.fullScreenCover
+├─ isPresented: PreviewBindingReference
+└─ content: PreviewNode
 ```
 
-Supported dismissal mutations match the existing Button action model:
+Pipeline:
+
+```text
+.fullScreenCover source
+        ↓
+SwiftUIFullScreenCoverPreviewProvider
+        ↓
+validate Bool @State
+        ↓
+portable PreviewModifier.fullScreenCover
+        ↓
+signed Preview Runtime
+        ↓
+native SwiftUI fullScreenCover
+```
+
+Full-screen content is parsed through the same safe provider stack and shares
+`PreviewStateStore`. It can contain current controls, actions, navigation,
+sheets, and another supported full-screen cover.
+
+Unknown state references and non-Bool bindings produce diagnostics before the
+runtime receives IR.
+
+## Current limitation
+
+This first pass supports exactly:
 
 ```swift
-status = "Closed"
-enabled = false
-count = 10
-count += 1
-count -= 1
-enabled.toggle()
+.fullScreenCover(isPresented: $state) { ... }
 ```
 
-Unknown state names, incompatible state types, and unsupported statements
-produce diagnostics before the runtime receives the presentation IR.
-
-The original `.sheet(isPresented:)` portable case is intentionally preserved
-unchanged for backward compatibility.
+`onDismiss:` for fullScreenCover and item-based presentation remain later
+presentation passes.
 
 ## Next preview layers
 
-1. `.fullScreenCover(isPresented:)`
-2. default template onDismiss example
+1. default template full-screen demo
+2. `.fullScreenCover(... onDismiss:)`
 3. `.sheet(item:)`
 4. animation / transitions
 5. richer control styles
@@ -83,7 +94,7 @@ unchanged for backward compatibility.
 
 ## Architecture constraint
 
-Presentation callbacks stay inside the same constrained `PreviewActionProgram`
-model already used by Buttons. Arbitrary Swift closures are not executed by the
-Preview Runtime, and the generic project/workspace/plugin core remains
-independent from SwiftUI presentation APIs.
+Full-screen presentation is another portable modifier layered above the current
+Sheet / Navigation / Interactive providers. The generic project/workspace/plugin
+core never executes arbitrary presentation closures or depends directly on
+SwiftUI presentation APIs.

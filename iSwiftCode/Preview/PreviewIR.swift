@@ -148,6 +148,12 @@ enum PreviewModifier: Equatable, Sendable {
         content: PreviewNode
     )
 
+    /// Full-screen presentation driven by portable Bool preview state.
+    case fullScreenCover(
+        isPresented: PreviewBindingReference,
+        content: PreviewNode
+    )
+
     case stackSpacing(Double)
     case horizontalAlignment(PreviewHorizontalAlignment)
     case verticalAlignment(PreviewVerticalAlignment)
