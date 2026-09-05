@@ -228,7 +228,12 @@ final class PreviewStateTests: XCTestCase {
             result.document?
                 .stateDefinitions
                 .map(\.name),
-            ["status", "count"]
+            [
+                "status",
+                "count",
+                "name",
+                "enabled"
+            ]
         )
     }
 }

@@ -135,6 +135,13 @@ enum BuiltInProjectTemplates {
                                     }
                                 }
 
+                                TextField("Name", text: $name)
+
+                                Toggle("Enabled", isOn: $enabled)
+
+                                Text("Hello, \\(name)")
+                                    .font(.headline)
+
                                 Text("Count: \\(count)")
                                     .font(.headline)
 
