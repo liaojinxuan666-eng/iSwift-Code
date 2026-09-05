@@ -8,7 +8,7 @@ struct WorkspaceView: View {
     @State private var newFilePath = ""
     @State private var fileBeingRenamed: WorkspacePath?
     @State private var renameDestination = ""
-    @State private var isShowingPreview = false
+    @State private var isPreviewVisible = false
 
     init() {
         _model = StateObject(wrappedValue: ProjectSessionViewModel())
@@ -23,6 +23,15 @@ struct WorkspaceView: View {
             VStack(alignment: .leading, spacing: 16) {
                 compilerStatus
                 fileStrip
+
+                if isPreviewVisible {
+                    LivePreviewPanelView(
+                        model: previewModel,
+                        refresh: refreshPreview,
+                        close: hidePreview
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
 
                 HStack(spacing: 8) {
                     Image(systemName: fileIcon(for: model.activeFilePath))
@@ -58,6 +67,7 @@ struct WorkspaceView: View {
             }
             .padding()
         }
+        .animation(.easeInOut(duration: 0.2), value: isPreviewVisible)
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle(model.projectName)
         .navigationBarTitleDisplayMode(.inline)
@@ -77,8 +87,11 @@ struct WorkspaceView: View {
                         model.restoreExample()
                     }
                     .disabled(model.entryFilePath == nil)
-                    Button("App Preview", systemImage: "iphone") {
-                        showPreview()
+                    Button(
+                        isPreviewVisible ? "Hide App Preview" : "Show App Preview",
+                        systemImage: isPreviewVisible ? "iphone.slash" : "iphone"
+                    ) {
+                        togglePreview()
                     }
                     .disabled(model.files.isEmpty)
                     Button("IPA Export — Phase 2", systemImage: "shippingbox") {}
@@ -90,12 +103,12 @@ struct WorkspaceView: View {
 
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
-                    showPreview()
+                    togglePreview()
                 } label: {
-                    Image(systemName: "iphone")
+                    Image(systemName: isPreviewVisible ? "iphone.gen3.circle.fill" : "iphone")
                 }
                 .disabled(model.files.isEmpty)
-                .accessibilityLabel("App Preview")
+                .accessibilityLabel(isPreviewVisible ? "Hide App Preview" : "Show App Preview")
 
                 Button(action: model.run) {
                     Label(model.isRunning ? "Running" : "Run", systemImage: "play.fill")
@@ -104,10 +117,14 @@ struct WorkspaceView: View {
                 .disabled(model.isRunning || model.activeFilePath == nil)
             }
         }
-        .sheet(isPresented: $isShowingPreview) {
-            PreviewSheetView(model: previewModel) {
-                showPreview()
-            }
+        .onChange(of: model.source) { _, _ in
+            scheduleLivePreviewRefresh()
+        }
+        .onChange(of: model.entryFilePath) { _, _ in
+            scheduleLivePreviewRefresh()
+        }
+        .onChange(of: model.files) { _, _ in
+            scheduleLivePreviewRefresh()
         }
         .alert("Create File", isPresented: $isCreatingFile) {
             TextField("Sources/Helper.swift", text: $newFilePath)
@@ -220,12 +237,33 @@ struct WorkspaceView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func showPreview() {
+    private func togglePreview() {
+        if isPreviewVisible {
+            hidePreview()
+        } else {
+            isPreviewVisible = true
+            refreshPreview()
+        }
+    }
+
+    private func hidePreview() {
+        previewModel.cancelScheduledRefresh()
+        isPreviewVisible = false
+    }
+
+    private func refreshPreview() {
         do {
             previewModel.refresh(from: try model.snapshotIncludingUnsavedChanges())
-            isShowingPreview = true
         } catch {
             model.present(error: error)
+        }
+    }
+
+    private func scheduleLivePreviewRefresh() {
+        guard isPreviewVisible else { return }
+
+        previewModel.scheduleRefresh {
+            try model.snapshotIncludingUnsavedChanges()
         }
     }
 
@@ -245,17 +283,54 @@ struct WorkspaceView: View {
     }
 }
 
-private struct PreviewSheetView: View {
+private struct LivePreviewPanelView: View {
     @ObservedObject var model: PreviewSessionViewModel
     let refresh: () -> Void
-    @Environment(\.dismiss) private var dismiss
+    let close: () -> Void
 
     var body: some View {
-        NavigationStack {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: "bolt.horizontal.circle.fill")
+                    .foregroundStyle(.green)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Live App Preview")
+                        .font(.subheadline.weight(.semibold))
+
+                    Text(statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if model.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Button(action: refresh) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Refresh Preview")
+
+                Button(action: close) {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Close Preview")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Divider()
+
             Group {
                 if let document = model.document {
                     PreviewRuntimeView(document: document)
-                        .padding()
+                        .padding(12)
                 } else {
                     ContentUnavailableView {
                         Label("Preview unavailable", systemImage: "iphone.slash")
@@ -264,17 +339,25 @@ private struct PreviewSheetView: View {
                     }
                 }
             }
-            .navigationTitle("App Preview")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Refresh", systemImage: "arrow.clockwise") { refresh() }
-                }
-            }
+            .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
+            .clipped()
         }
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
+        }
+    }
+
+    private var statusText: String {
+        if model.isRefreshing {
+            return "Refreshing…"
+        }
+        if model.lastRefreshDate != nil {
+            return "Live • \(model.refreshCount) refresh(es)"
+        }
+        return "Waiting for preview"
     }
 }
 

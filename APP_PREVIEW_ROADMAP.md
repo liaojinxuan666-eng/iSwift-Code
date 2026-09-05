@@ -6,30 +6,18 @@ App Preview remains a core iSwift Code feature with three separate product paths
 
 `Run Code | Preview App | Build IPA`
 
-## Completed in 0.1.3 foundation
+## Completed
+
+### Preview foundation
 
 - generic `PreviewProvider`
 - `PluginCapability.preview`
 - provider discovery through PluginRegistry
 - structural Preview IR
 - signed Native SwiftUI Preview Runtime
-- workspace preview from unsaved project snapshots
 - SwiftUI Preview project template
 
-Structural nodes currently include:
-
-- Text
-- Button
-- SF Symbol Image(systemName:)
-- Spacer
-- VStack / HStack / ZStack
-- ScrollView
-- List
-- NavigationStack
-
-## Modifier IR — current batch
-
-Preview IR now preserves these SwiftUI-style modifiers:
+### Modifier IR
 
 - `.padding()` / `.padding(number)`
 - `.frame(width:height:)`
@@ -39,19 +27,32 @@ Preview IR now preserves these SwiftUI-style modifiers:
 - `.font(style)`
 - `.cornerRadius(number)`
 
-Supported named colors and semantic colors are represented as portable Preview IR values rather than embedding SwiftUI `Color` objects in provider output.
+### Live Preview — current batch
 
-The signed Preview Runtime maps those portable values onto native SwiftUI when rendering.
+The preview is now an inline workspace panel instead of a modal sheet.
+
+While the preview panel is visible:
+
+1. the user keeps the code editor available in the same workspace,
+2. source edits schedule a debounced preview update,
+3. rapid keystrokes cancel older pending updates,
+4. only the latest edit takes a new workspace snapshot,
+5. the snapshot still includes unsaved editor buffers,
+6. the signed Preview Runtime replaces the visible preview without rebuilding or reinstalling an IPA.
+
+Default debounce delay: **350 ms**.
+
+The debounce lives in `PreviewSessionViewModel`, not in the SwiftUI Preview Provider. This keeps PreviewProvider implementations independent from editor timing policy.
 
 ## Next preview layers
 
-1. automatic/debounced refresh while editing
-2. richer modifier parsing and alignment/spacing
-3. State / Binding
-4. TextField / Toggle / Picker
-5. sheets/navigation/animation
+1. spacing/alignment and richer modifier parsing
+2. State / Binding preview state model
+3. TextField / Toggle / Picker interactive controls
+4. navigation destinations and sheets
+5. animation/transitions
 6. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
-SwiftUI parsing and SwiftUI rendering remain inside the SwiftUI Preview Provider / Preview Runtime implementation. ProjectStore, ProjectWorkspace, ProjectSession, and the generic provider/plugin core remain provider-agnostic.
+Live Preview remains snapshot-driven. ProjectStore, ProjectWorkspace, and ProjectSession do not gain SwiftUI-specific behavior, and preview generation never requires saving the active file first.
