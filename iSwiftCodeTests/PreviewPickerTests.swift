@@ -111,7 +111,7 @@ final class PreviewPickerTests: XCTestCase {
                 }
                 .padding(8)
 
-                Text("Mode: \(mode)")
+                Text("Mode: \\(mode)")
             }
             """
         )
@@ -141,9 +141,13 @@ final class PreviewPickerTests: XCTestCase {
             )
         }
 
+        let expectedModifiers: [PreviewModifier] = [
+            .padding(8)
+        ]
+
         XCTAssertEqual(
             modifiers,
-            [.padding(8)]
+            expectedModifiers
         )
     }
 
@@ -200,7 +204,7 @@ final class PreviewPickerTests: XCTestCase {
 
             VStack {
                 TextField("Name", text: $name)
-                Text("Hello, \(name)")
+                Text("Hello, \\(name)")
             }
             """
         )
