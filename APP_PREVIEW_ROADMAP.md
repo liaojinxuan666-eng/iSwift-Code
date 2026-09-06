@@ -30,6 +30,9 @@ App Preview keeps three separate product paths:
 - item-member string interpolation in Text
 - source-level validation diagnostics for unknown custom item members
 - built-in Identifiable sheet/full-screen regression demo catalog
+- portable animation/transition modifier IR foundation
+- value-driven animation lowering for default/linear/ease/spring curves
+- portable opacity/scale/slide/move transition lowering
 
 ## Current custom item Text support
 
@@ -94,6 +97,34 @@ Preview diagnostic before runtime rendering.
 These fixtures are regression inputs only; they do not execute source SwiftUI
 code directly.
 
+## Motion foundation
+
+The first portable motion layer supports:
+
+```swift
+.animation(.default, value: state)
+.animation(.linear, value: state)
+.animation(.easeIn, value: state)
+.animation(.easeOut, value: state)
+.animation(.easeInOut(duration: 0.25), value: state)
+.animation(.spring(), value: state)
+
+.transition(.opacity)
+.transition(.scale)
+.transition(.slide)
+.transition(.move(edge: .leading))
+```
+
+Animation values are constrained to known preview `@State` identifiers.
+The runtime maps portable motion metadata to native SwiftUI `Animation` and
+`AnyTransition` values.
+
+Transition metadata is now preserved end-to-end. The next motion step is
+portable conditional insertion/removal so transitions can visibly activate
+when preview state changes.
+
+Source animation expressions themselves are never executed.
+
 ## Existing paths remain unchanged
 
 - primitive `Text(item)` item presentation
@@ -105,7 +136,7 @@ code directly.
 
 ## Next preview layers
 
-1. animation / transitions
+1. conditional visibility / insertion-removal for active transitions
 2. richer control styles
 3. iPad side-by-side editor/preview layout
 

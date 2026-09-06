@@ -200,6 +200,56 @@ struct PreviewFrame: Equatable, Sendable {
     }
 }
 
+enum PreviewAnimationCurve:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case `default`
+    case linear
+    case easeIn
+    case easeOut
+    case easeInOut
+    case spring
+}
+
+struct PreviewAnimationSpec:
+    Equatable,
+    Sendable {
+    let curve: PreviewAnimationCurve
+    let duration: Double?
+
+    init(
+        curve: PreviewAnimationCurve,
+        duration: Double? = nil
+    ) {
+        self.curve = curve
+        self.duration = duration
+    }
+}
+
+enum PreviewTransitionEdge:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case leading
+    case trailing
+    case top
+    case bottom
+}
+
+enum PreviewTransition:
+    Equatable,
+    Sendable {
+    case opacity
+    case scale
+    case slide
+    case move(PreviewTransitionEdge)
+}
+
 enum PreviewModifier: Equatable, Sendable {
     case padding(Double?)
     case frame(PreviewFrame)
@@ -208,6 +258,18 @@ enum PreviewModifier: Equatable, Sendable {
     case font(PreviewFont)
     case cornerRadius(Double)
     case navigationTitle(String)
+
+    /// Portable value-driven animation. Providers lower only supported
+    /// Animation curves and a simple preview-state value reference.
+    case animation(
+        PreviewAnimationSpec,
+        value: PreviewBindingReference
+    )
+
+    /// Portable transition metadata. The runtime applies SwiftUI's native
+    /// transition without executing source expressions.
+    case transition(PreviewTransition)
+
     case sheet(
         isPresented: PreviewBindingReference,
         content: PreviewNode

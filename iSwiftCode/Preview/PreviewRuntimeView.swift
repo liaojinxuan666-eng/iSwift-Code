@@ -691,6 +691,30 @@ private struct PreviewNodeView: View {
                 view.navigationTitle(title)
             )
 
+        case .animation(
+            let spec,
+            let reference
+        ):
+            return AnyView(
+                view.animation(
+                    swiftUIAnimation(spec),
+                    value:
+                        stateStore.value(
+                            for:
+                                reference.stateName
+                        )
+                )
+            )
+
+        case .transition(let transition):
+            return AnyView(
+                view.transition(
+                    swiftUITransition(
+                        transition
+                    )
+                )
+            )
+
         case .sheet(
             let reference,
             let content
@@ -847,6 +871,91 @@ private struct PreviewNodeView: View {
 
         case .infinity:
             return CGFloat.infinity
+        }
+    }
+
+    private func swiftUIAnimation(
+        _ spec: PreviewAnimationSpec
+    ) -> Animation {
+        switch spec.curve {
+        case .default:
+            return .default
+
+        case .linear:
+            if let duration = spec.duration {
+                return .linear(
+                    duration: duration
+                )
+            }
+            return .linear
+
+        case .easeIn:
+            if let duration = spec.duration {
+                return .easeIn(
+                    duration: duration
+                )
+            }
+            return .easeIn
+
+        case .easeOut:
+            if let duration = spec.duration {
+                return .easeOut(
+                    duration: duration
+                )
+            }
+            return .easeOut
+
+        case .easeInOut:
+            if let duration = spec.duration {
+                return .easeInOut(
+                    duration: duration
+                )
+            }
+            return .easeInOut
+
+        case .spring:
+            return .spring()
+        }
+    }
+
+    private func swiftUITransition(
+        _ transition: PreviewTransition
+    ) -> AnyTransition {
+        switch transition {
+        case .opacity:
+            return .opacity
+
+        case .scale:
+            return .scale
+
+        case .slide:
+            return .slide
+
+        case .move(let edge):
+            return .move(
+                edge:
+                    swiftUITransitionEdge(
+                        edge
+                    )
+            )
+        }
+    }
+
+    private func swiftUITransitionEdge(
+        _ edge: PreviewTransitionEdge
+    ) -> Edge {
+        switch edge {
+        case .leading:
+            return .leading
+
+        case .trailing:
+            return .trailing
+
+        case .top:
+            return .top
+
+        case .bottom:
+            return .bottom
         }
     }
 
