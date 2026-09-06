@@ -29,6 +29,7 @@ App Preview keeps three separate product paths:
 - direct `Text(item.member)` lowering
 - item-member string interpolation in Text
 - source-level validation diagnostics for unknown custom item members
+- built-in Identifiable sheet/full-screen regression demo catalog
 
 ## Current custom item Text support
 
@@ -67,6 +68,32 @@ silently renders an empty string.
 The validator is source-only and portable. It never executes the source model,
 property getters, presentation closures, or interpolation expressions.
 
+## Built-in custom-item regression demos
+
+`PreviewIdentifiableDemoCatalog` now keeps source fixtures for both:
+
+- `.sheet(item:)`
+- `.fullScreenCover(item:)`
+
+Each successful fixture exercises the same path used by user files:
+
+```text
+Identifiable source model
+→ typed optional @State
+→ constructor Button action
+→ portable item state
+→ item presentation
+→ direct item.member
+→ interpolated item.member
+→ clear back to nil
+```
+
+A deliberately invalid fixture also verifies that an unknown member produces a
+Preview diagnostic before runtime rendering.
+
+These fixtures are regression inputs only; they do not execute source SwiftUI
+code directly.
+
 ## Existing paths remain unchanged
 
 - primitive `Text(item)` item presentation
@@ -78,10 +105,9 @@ property getters, presentation closures, or interpolation expressions.
 
 ## Next preview layers
 
-1. richer custom-item built-in demo coverage
-2. animation / transitions
-3. richer control styles
-4. iPad side-by-side editor/preview layout
+1. animation / transitions
+2. richer control styles
+3. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
