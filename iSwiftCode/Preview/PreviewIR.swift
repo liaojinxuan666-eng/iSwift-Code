@@ -338,6 +338,55 @@ enum PreviewDisabledValue:
     case state(PreviewBindingReference)
 }
 
+enum PreviewTextInputAutocapitalization:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case never
+    case words
+    case sentences
+    case characters
+}
+
+enum PreviewKeyboardType:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case `default`
+    case asciiCapable
+    case numbersAndPunctuation
+    case url
+    case numberPad
+    case phonePad
+    case namePhonePad
+    case emailAddress
+    case decimalPad
+    case twitter
+    case webSearch
+    case asciiCapableNumberPad
+}
+
+enum PreviewSubmitLabel:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case done
+    case go
+    case send
+    case join
+    case route
+    case search
+    case `return`
+    case next
+    case `continue`
+}
+
 struct PreviewBooleanCondition: Equatable, Sendable {
     let stateName: String
     let isNegated: Bool
@@ -370,6 +419,15 @@ enum PreviewModifier: Equatable, Sendable {
     case tint(PreviewColor)
     case labelStyle(PreviewLabelStyle)
     case disabled(PreviewDisabledValue)
+
+    /// Portable text-input environment and keyboard behavior.
+    case textInputAutocapitalization(
+        PreviewTextInputAutocapitalization
+    )
+    case keyboardType(PreviewKeyboardType)
+    case autocorrectionDisabled(Bool)
+    case submitLabel(PreviewSubmitLabel)
+    case labelsHidden
 
     /// Portable value-driven animation. Providers lower only supported
     /// Animation curves and a simple preview-state value reference.
@@ -454,6 +512,13 @@ indirect enum PreviewNode: Equatable, Sendable {
         prompt: String,
         text: PreviewBindingReference
     )
+
+    /// Secure text input using the same portable String binding as TextField.
+    case secureField(
+        prompt: String,
+        text: PreviewBindingReference
+    )
+
     case toggle(
         title: String,
         isOn: PreviewBindingReference

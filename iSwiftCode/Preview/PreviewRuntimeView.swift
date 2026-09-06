@@ -160,6 +160,16 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .secureField(let prompt, let reference):
+            return AnyView(
+                SecureField(
+                    prompt,
+                    text: stringBinding(
+                        for: reference.stateName
+                    )
+                )
+            )
+
         case .toggle(let title, let reference):
             return AnyView(
                 Toggle(
@@ -901,6 +911,34 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .textInputAutocapitalization(let style):
+            return applyTextInputAutocapitalization(
+                style,
+                to: view
+            )
+
+        case .keyboardType(let type):
+            return applyKeyboardType(
+                type,
+                to: view
+            )
+
+        case .autocorrectionDisabled(let disabled):
+            return AnyView(
+                view.autocorrectionDisabled(disabled)
+            )
+
+        case .submitLabel(let label):
+            return applySubmitLabel(
+                label,
+                to: view
+            )
+
+        case .labelsHidden:
+            return AnyView(
+                view.labelsHidden()
+            )
+
         case .animation(
             let spec,
             let reference
@@ -1124,6 +1162,130 @@ private struct PreviewNodeView: View {
         case .state(let reference):
             return stateStore.boolValue(
                 for: reference.stateName
+            )
+        }
+    }
+
+    private func applyTextInputAutocapitalization(
+        _ style: PreviewTextInputAutocapitalization,
+        to view: AnyView
+    ) -> AnyView {
+        switch style {
+        case .never:
+            return AnyView(
+                view.textInputAutocapitalization(.never)
+            )
+        case .words:
+            return AnyView(
+                view.textInputAutocapitalization(.words)
+            )
+        case .sentences:
+            return AnyView(
+                view.textInputAutocapitalization(.sentences)
+            )
+        case .characters:
+            return AnyView(
+                view.textInputAutocapitalization(.characters)
+            )
+        }
+    }
+
+    private func applyKeyboardType(
+        _ type: PreviewKeyboardType,
+        to view: AnyView
+    ) -> AnyView {
+        switch type {
+        case .default:
+            return AnyView(
+                view.keyboardType(.default)
+            )
+        case .asciiCapable:
+            return AnyView(
+                view.keyboardType(.asciiCapable)
+            )
+        case .numbersAndPunctuation:
+            return AnyView(
+                view.keyboardType(.numbersAndPunctuation)
+            )
+        case .url:
+            return AnyView(
+                view.keyboardType(.URL)
+            )
+        case .numberPad:
+            return AnyView(
+                view.keyboardType(.numberPad)
+            )
+        case .phonePad:
+            return AnyView(
+                view.keyboardType(.phonePad)
+            )
+        case .namePhonePad:
+            return AnyView(
+                view.keyboardType(.namePhonePad)
+            )
+        case .emailAddress:
+            return AnyView(
+                view.keyboardType(.emailAddress)
+            )
+        case .decimalPad:
+            return AnyView(
+                view.keyboardType(.decimalPad)
+            )
+        case .twitter:
+            return AnyView(
+                view.keyboardType(.twitter)
+            )
+        case .webSearch:
+            return AnyView(
+                view.keyboardType(.webSearch)
+            )
+        case .asciiCapableNumberPad:
+            return AnyView(
+                view.keyboardType(.asciiCapableNumberPad)
+            )
+        }
+    }
+
+    private func applySubmitLabel(
+        _ label: PreviewSubmitLabel,
+        to view: AnyView
+    ) -> AnyView {
+        switch label {
+        case .done:
+            return AnyView(
+                view.submitLabel(.done)
+            )
+        case .go:
+            return AnyView(
+                view.submitLabel(.go)
+            )
+        case .send:
+            return AnyView(
+                view.submitLabel(.send)
+            )
+        case .join:
+            return AnyView(
+                view.submitLabel(.join)
+            )
+        case .route:
+            return AnyView(
+                view.submitLabel(.route)
+            )
+        case .search:
+            return AnyView(
+                view.submitLabel(.search)
+            )
+        case .return:
+            return AnyView(
+                view.submitLabel(.return)
+            )
+        case .next:
+            return AnyView(
+                view.submitLabel(.next)
+            )
+        case .continue:
+            return AnyView(
+                view.submitLabel(.continue)
             )
         }
     }

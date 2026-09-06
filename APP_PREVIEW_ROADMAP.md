@@ -38,6 +38,10 @@ App Preview keeps three separate product paths:
 - portable Label and label-backed Button content
 - portable destructive/cancel Button roles
 - portable labelStyle and disabled modifiers
+- portable SecureField using String preview state
+- portable keyboard type and submit-label behavior
+- portable text-input autocapitalization/autocorrection behavior
+- portable labelsHidden control modifier
 - Bool @State conditional insertion/removal
 - negated Bool conditions and simple else branches
 - active transition path through conditional branches
@@ -202,8 +206,34 @@ Button closures still travel through the existing constrained
 `PreviewActionProgram` path; richer control content does not execute arbitrary
 source closures.
 
-The next style expansion can add text-input behavior and additional safe control
-modifiers after active transition insertion/removal is complete.
+The text-input layer now also preserves `SecureField`, keyboard type,
+autocapitalization, autocorrection, submit-label behavior, and `labelsHidden`.
+These values remain portable metadata and are applied only by the signed native
+runtime.
+
+## Text-input behavior
+
+Portable input behavior now supports:
+
+```swift
+SecureField("Password", text: $password)
+
+TextField("Email", text: $email)
+    .keyboardType(.emailAddress)
+    .textInputAutocapitalization(.never)
+    .autocorrectionDisabled()
+    .submitLabel(.done)
+
+Toggle("Remember", isOn: $remember)
+    .labelsHidden()
+```
+
+Supported keyboard types include the common iOS keyboard families such as
+default, ASCII, URL, number/phone pads, email, decimal, Twitter, and web search.
+
+The provider never receives or executes a keyboard callback. It lowers source
+configuration into portable PreviewModifier values and the signed SwiftUI
+runtime applies the matching native environment modifiers.
 
 ## Existing paths remain unchanged
 
@@ -216,8 +246,8 @@ modifiers after active transition insertion/removal is complete.
 
 ## Next preview layers
 
-1. text-input behavior and additional safe control modifiers
-2. richer conditional expressions / collection-style preview nodes
+1. richer conditional expressions / collection-style preview nodes
+2. additional safe SwiftUI layout/control modifiers
 3. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
