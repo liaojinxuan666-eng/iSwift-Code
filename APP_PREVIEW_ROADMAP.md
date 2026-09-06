@@ -26,68 +26,62 @@ App Preview keeps three separate product paths:
 - typed optional custom-model `@State` recognition
 - constrained Identifiable model-constructor action lowering
 - runtime custom Identifiable item presentation bridge
-- direct `Text(item.member)` lowering for item presentations
+- direct `Text(item.member)` lowering
+- item-member string interpolation in Text
 
-## Current custom item path
+## Current custom item Text support
 
-The first direct member form now lowers portably:
+Direct member access:
 
 ```swift
-struct DetailItem: Identifiable {
-    let id: Int
-    let title: String
-}
-
-@State private var selectedItem: DetailItem? = nil
-
-Button("Open") {
-    selectedItem = DetailItem(
-        id: 1,
-        title: "Details"
-    )
-}
-.sheet(item: $selectedItem) { item in
-    Text(item.title)
-    Text(item.id)
-}
+Text(item.title)
+Text(item.id)
 ```
 
-The presentation member expressions become:
+Member interpolation:
+
+```swift
+Text("Title: \(item.title)")
+Text("ID: \(item.id)")
+Text("\(item.id): \(item.title)")
+```
+
+The provider replaces source interpolation with portable markers before the
+existing parser stack runs. The resulting Preview IR stores only:
 
 ```text
-item.title
-    ↓
-PreviewNode.itemMemberText(
-    stateName: "selectedItem",
-    memberName: "title"
-)
-    ↓
-PreviewStateStore optional Identifiable item
-    ↓
-PreviewIdentifiableItem.member(named:)
-    ↓
-native Text
+template
++ stateName
++ memberName
 ```
 
-No source property getter is executed.
+At runtime, ordinary preview-state interpolation is resolved first, then each
+portable item-member marker is replaced from `PreviewIdentifiableItem`.
 
-The same direct-member form is supported for
+No source property getter or interpolation expression is executed.
+
+The same interpolation path works in both `.sheet(item:)` and
 `.fullScreenCover(item:)`.
 
-Primitive item presentation remains on its existing path. Direct
-`item.member` requires a custom Identifiable optional state.
+## Existing paths remain unchanged
+
+- primitive `Text(item)` item presentation
+- direct custom `Text(item.member)`
+- ordinary `Text("\(state)")` preview interpolation
+- primitive Button actions
+- custom Identifiable constructor actions
 
 ## Next preview layers
 
-1. member interpolation such as `Text("\(item.title)")`
-2. validation diagnostics for unknown custom members
-3. richer custom-item demo coverage
-4. animation / transitions
-5. richer control styles
-6. iPad side-by-side editor/preview layout
+1. validation diagnostics for unknown custom members
+2. richer custom-item built-in demo coverage
+3. animation / transitions
+4. richer control styles
+5. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
 Item presentation remains provider-driven and portable. The generic project,
 workspace, and plugin core never executes arbitrary presentation closures,
-model constructors, property getters, or user-supplied SwiftUI runtime code.
+model constructors, property getters, interpolation expressions, or
+user-supplied SwiftUI runtime code.

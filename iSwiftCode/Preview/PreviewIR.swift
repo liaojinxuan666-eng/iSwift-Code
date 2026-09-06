@@ -151,6 +151,13 @@ enum PreviewStateValue: Equatable, Hashable, Sendable {
     }
 }
 
+/// One portable item-member replacement embedded in a Text template.
+struct PreviewItemMemberInterpolation: Equatable, Sendable {
+    let marker: String
+    let stateName: String
+    let memberName: String
+}
+
 struct PreviewStateDefinition: Equatable, Sendable {
     let name: String
     let initialValue: PreviewStateValue
@@ -256,6 +263,17 @@ indirect enum PreviewNode: Equatable, Sendable {
     case itemMemberText(
         stateName: String,
         memberName: String
+    )
+
+    /// A Text literal containing one or more members from the currently
+    /// presented portable Identifiable item, for example:
+    /// `Text("Title: \(item.title)")`.
+    ///
+    /// Markers are inserted by the provider and resolved only from portable
+    /// PreviewIdentifiableItem data at runtime.
+    case itemMemberInterpolatedText(
+        template: String,
+        members: [PreviewItemMemberInterpolation]
     )
 
     case textField(

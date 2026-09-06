@@ -92,6 +92,19 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .itemMemberInterpolatedText(
+            let template,
+            let members
+        ):
+            return AnyView(
+                Text(
+                    resolveItemMemberInterpolations(
+                        in: template,
+                        members: members
+                    )
+                )
+            )
+
         case .textField(let prompt, let reference):
             return AnyView(
                 TextField(
@@ -512,6 +525,28 @@ private struct PreviewNodeView: View {
         default:
             return false
         }
+    }
+
+    private func resolveItemMemberInterpolations(
+        in template: String,
+        members: [PreviewItemMemberInterpolation]
+    ) -> String {
+        var result =
+            stateStore.resolveInterpolations(
+                in: template
+            )
+
+        for member in members {
+            result = result.replacingOccurrences(
+                of: member.marker,
+                with: presentedItemMemberText(
+                    stateName: member.stateName,
+                    memberName: member.memberName
+                )
+            )
+        }
+
+        return result
     }
 
     private func presentedItemMemberText(

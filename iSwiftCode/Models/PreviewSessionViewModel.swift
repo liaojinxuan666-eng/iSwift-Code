@@ -14,7 +14,7 @@ final class PreviewSessionViewModel: ObservableObject {
 
     init(
         provider: any PreviewProvider =
-            SwiftUIIdentifiableItemMemberPreviewProvider()
+            SwiftUIIdentifiableItemInterpolationPreviewProvider()
     ) {
         self.provider = provider
     }
