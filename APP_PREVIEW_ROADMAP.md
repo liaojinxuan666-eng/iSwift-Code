@@ -35,6 +35,9 @@ App Preview keeps three separate product paths:
 - portable opacity/scale/slide/move transition lowering
 - portable Button/TextField/Picker/Toggle style foundation
 - portable controlSize and tint lowering
+- portable Label and label-backed Button content
+- portable destructive/cancel Button roles
+- portable labelStyle and disabled modifiers
 
 ## Current custom item Text support
 
@@ -169,8 +172,16 @@ TextField as `roundedBorder`, or every Picker as `menu`. Unstyled controls now
 use native SwiftUI defaults, while explicitly styled controls keep the source
 appearance.
 
-Next control-style work can add button roles, Label/image button content,
-disabled state, text input options, and more safe style modifiers.
+Second-wave control content now adds literal `Label` + SF Symbol content,
+label-backed Buttons, destructive/cancel Button roles, `.labelStyle(...)`, and
+both literal and Bool-`@State` driven `.disabled(...)`.
+
+Button closures still travel through the existing constrained
+`PreviewActionProgram` path; richer control content does not execute arbitrary
+source closures.
+
+The next style expansion can add text-input behavior and additional safe control
+modifiers after active transition insertion/removal is complete.
 
 ## Existing paths remain unchanged
 
@@ -183,8 +194,8 @@ disabled state, text input options, and more safe style modifiers.
 
 ## Next preview layers
 
-1. richer control-style coverage and labels
-2. conditional visibility / insertion-removal for active transitions
+1. conditional visibility / insertion-removal for active transitions
+2. text-input behavior and additional safe control modifiers
 3. iPad side-by-side editor/preview layout
 
 ## Architecture constraint

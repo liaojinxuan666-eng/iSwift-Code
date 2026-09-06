@@ -162,6 +162,106 @@ private struct PreviewNodeView: View {
                 }
             )
 
+        case .label(
+            let title,
+            let systemName
+        ):
+            return AnyView(
+                Label(
+                    title,
+                    systemImage: systemName
+                )
+            )
+
+        case .roleButton(
+            let title,
+            let role
+        ):
+            return AnyView(
+                Button(
+                    role: swiftUIButtonRole(role)
+                ) {
+                } label: {
+                    Text(title)
+                }
+            )
+
+        case .roleActionButton(
+            let title,
+            let role,
+            let program
+        ):
+            return AnyView(
+                Button(
+                    role: swiftUIButtonRole(role)
+                ) {
+                    _ = stateStore.perform(program)
+                } label: {
+                    Text(title)
+                }
+            )
+
+        case .labelButton(
+            let title,
+            let systemName,
+            let role
+        ):
+            if let role {
+                return AnyView(
+                    Button(
+                        role: swiftUIButtonRole(role)
+                    ) {
+                    } label: {
+                        Label(
+                            title,
+                            systemImage: systemName
+                        )
+                    }
+                )
+            }
+
+            return AnyView(
+                Button {
+                } label: {
+                    Label(
+                        title,
+                        systemImage: systemName
+                    )
+                }
+            )
+
+        case .labelActionButton(
+            let title,
+            let systemName,
+            let role,
+            let program
+        ):
+            if let role {
+                return AnyView(
+                    Button(
+                        role: swiftUIButtonRole(role)
+                    ) {
+                        _ = stateStore.perform(program)
+                    } label: {
+                        Label(
+                            title,
+                            systemImage: systemName
+                        )
+                    }
+                )
+            }
+
+            return AnyView(
+                Button {
+                    _ = stateStore.perform(program)
+                } label: {
+                    Label(
+                        title,
+                        systemImage: systemName
+                    )
+                }
+            )
+
         case .image(let systemName):
             return AnyView(
                 Image(systemName: systemName)
@@ -729,6 +829,19 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .labelStyle(let style):
+            return applyLabelStyle(
+                style,
+                to: view
+            )
+
+        case .disabled(let disabled):
+            return AnyView(
+                view.disabled(
+                    resolveDisabled(disabled)
+                )
+            )
+
         case .animation(
             let spec,
             let reference
@@ -909,6 +1022,50 @@ private struct PreviewNodeView: View {
 
         case .infinity:
             return CGFloat.infinity
+        }
+    }
+
+    private func swiftUIButtonRole(
+        _ role: PreviewButtonRole
+    ) -> ButtonRole {
+        switch role {
+        case .destructive:
+            return .destructive
+        case .cancel:
+            return .cancel
+        }
+    }
+
+    private func applyLabelStyle(
+        _ style: PreviewLabelStyle,
+        to view: AnyView
+    ) -> AnyView {
+        switch style {
+        case .titleAndIcon:
+            return AnyView(
+                view.labelStyle(.titleAndIcon)
+            )
+        case .titleOnly:
+            return AnyView(
+                view.labelStyle(.titleOnly)
+            )
+        case .iconOnly:
+            return AnyView(
+                view.labelStyle(.iconOnly)
+            )
+        }
+    }
+
+    private func resolveDisabled(
+        _ value: PreviewDisabledValue
+    ) -> Bool {
+        switch value {
+        case .literal(let disabled):
+            return disabled
+        case .state(let reference):
+            return stateStore.boolValue(
+                for: reference.stateName
+            )
         }
     }
 

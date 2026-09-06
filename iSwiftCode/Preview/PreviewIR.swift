@@ -310,6 +310,34 @@ enum PreviewControlSize:
     case large
 }
 
+enum PreviewButtonRole:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case destructive
+    case cancel
+}
+
+enum PreviewLabelStyle:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case titleAndIcon
+    case titleOnly
+    case iconOnly
+}
+
+enum PreviewDisabledValue:
+    Equatable,
+    Sendable {
+    case literal(Bool)
+    case state(PreviewBindingReference)
+}
+
 enum PreviewModifier: Equatable, Sendable {
     case padding(Double?)
     case frame(PreviewFrame)
@@ -327,6 +355,8 @@ enum PreviewModifier: Equatable, Sendable {
     case toggleStyle(PreviewToggleStyle)
     case controlSize(PreviewControlSize)
     case tint(PreviewColor)
+    case labelStyle(PreviewLabelStyle)
+    case disabled(PreviewDisabledValue)
 
     /// Portable value-driven animation. Providers lower only supported
     /// Animation curves and a simple preview-state value reference.
@@ -426,6 +456,32 @@ indirect enum PreviewNode: Equatable, Sendable {
         title: String,
         program: PreviewActionProgram
     )
+
+    case label(
+        title: String,
+        systemName: String
+    )
+    case roleButton(
+        title: String,
+        role: PreviewButtonRole
+    )
+    case roleActionButton(
+        title: String,
+        role: PreviewButtonRole,
+        program: PreviewActionProgram
+    )
+    case labelButton(
+        title: String,
+        systemName: String,
+        role: PreviewButtonRole?
+    )
+    case labelActionButton(
+        title: String,
+        systemName: String,
+        role: PreviewButtonRole?,
+        program: PreviewActionProgram
+    )
+
     case image(systemName: String)
     case spacer
     case vStack(children: [PreviewNode])
