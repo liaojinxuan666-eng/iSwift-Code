@@ -113,7 +113,6 @@ private struct PreviewNodeView: View {
                         for: reference.stateName
                     )
                 )
-                .textFieldStyle(.roundedBorder)
             )
 
         case .toggle(let title, let reference):
@@ -146,13 +145,11 @@ private struct PreviewNodeView: View {
                             .tag(item.element.value)
                     }
                 }
-                .pickerStyle(.menu)
             )
 
         case .button(let title):
             return AnyView(
                 Button(title) {}
-                    .buttonStyle(.borderedProminent)
             )
 
         case .actionButton(
@@ -163,7 +160,6 @@ private struct PreviewNodeView: View {
                 Button(title) {
                     _ = stateStore.perform(program)
                 }
-                .buttonStyle(.borderedProminent)
             )
 
         case .image(let systemName):
@@ -691,6 +687,48 @@ private struct PreviewNodeView: View {
                 view.navigationTitle(title)
             )
 
+        case .buttonStyle(let style):
+            return applyButtonStyle(
+                style,
+                to: view
+            )
+
+        case .textFieldStyle(let style):
+            return applyTextFieldStyle(
+                style,
+                to: view
+            )
+
+        case .pickerStyle(let style):
+            return applyPickerStyle(
+                style,
+                to: view
+            )
+
+        case .toggleStyle(let style):
+            return applyToggleStyle(
+                style,
+                to: view
+            )
+
+        case .controlSize(let size):
+            return AnyView(
+                view.controlSize(
+                    swiftUIControlSize(
+                        size
+                    )
+                )
+            )
+
+        case .tint(let color):
+            return AnyView(
+                view.tint(
+                    swiftUIColor(
+                        color
+                    )
+                )
+            )
+
         case .animation(
             let spec,
             let reference
@@ -871,6 +909,111 @@ private struct PreviewNodeView: View {
 
         case .infinity:
             return CGFloat.infinity
+        }
+    }
+
+    private func applyButtonStyle(
+        _ style: PreviewButtonStyle,
+        to view: AnyView
+    ) -> AnyView {
+        switch style {
+        case .automatic:
+            return AnyView(
+                view.buttonStyle(.automatic)
+            )
+        case .plain:
+            return AnyView(
+                view.buttonStyle(.plain)
+            )
+        case .borderless:
+            return AnyView(
+                view.buttonStyle(.borderless)
+            )
+        case .bordered:
+            return AnyView(
+                view.buttonStyle(.bordered)
+            )
+        case .borderedProminent:
+            return AnyView(
+                view.buttonStyle(.borderedProminent)
+            )
+        }
+    }
+
+    private func applyTextFieldStyle(
+        _ style: PreviewTextFieldStyle,
+        to view: AnyView
+    ) -> AnyView {
+        switch style {
+        case .automatic:
+            return view
+        case .plain:
+            return AnyView(
+                view.textFieldStyle(.plain)
+            )
+        case .roundedBorder:
+            return AnyView(
+                view.textFieldStyle(.roundedBorder)
+            )
+        }
+    }
+
+    private func applyPickerStyle(
+        _ style: PreviewPickerStyle,
+        to view: AnyView
+    ) -> AnyView {
+        switch style {
+        case .automatic:
+            return view
+        case .menu:
+            return AnyView(
+                view.pickerStyle(.menu)
+            )
+        case .segmented:
+            return AnyView(
+                view.pickerStyle(.segmented)
+            )
+        case .wheel:
+            return AnyView(
+                view.pickerStyle(.wheel)
+            )
+        case .inline:
+            return AnyView(
+                view.pickerStyle(.inline)
+            )
+        }
+    }
+
+    private func applyToggleStyle(
+        _ style: PreviewToggleStyle,
+        to view: AnyView
+    ) -> AnyView {
+        switch style {
+        case .automatic:
+            return view
+        case .switch:
+            return AnyView(
+                view.toggleStyle(.switch)
+            )
+        case .button:
+            return AnyView(
+                view.toggleStyle(.button)
+            )
+        }
+    }
+
+    private func swiftUIControlSize(
+        _ size: PreviewControlSize
+    ) -> ControlSize {
+        switch size {
+        case .mini:
+            return .mini
+        case .small:
+            return .small
+        case .regular:
+            return .regular
+        case .large:
+            return .large
         }
     }
 

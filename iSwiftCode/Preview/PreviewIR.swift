@@ -250,6 +250,66 @@ enum PreviewTransition:
     case move(PreviewTransitionEdge)
 }
 
+enum PreviewButtonStyle:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case automatic
+    case plain
+    case borderless
+    case bordered
+    case borderedProminent
+}
+
+enum PreviewTextFieldStyle:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case automatic
+    case plain
+    case roundedBorder
+}
+
+enum PreviewPickerStyle:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case automatic
+    case menu
+    case segmented
+    case wheel
+    case inline
+}
+
+enum PreviewToggleStyle:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case automatic
+    case `switch`
+    case button
+}
+
+enum PreviewControlSize:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable {
+    case mini
+    case small
+    case regular
+    case large
+}
+
 enum PreviewModifier: Equatable, Sendable {
     case padding(Double?)
     case frame(PreviewFrame)
@@ -258,6 +318,15 @@ enum PreviewModifier: Equatable, Sendable {
     case font(PreviewFont)
     case cornerRadius(Double)
     case navigationTitle(String)
+
+    /// Portable control styling. These map to native SwiftUI style
+    /// environment values in the signed runtime.
+    case buttonStyle(PreviewButtonStyle)
+    case textFieldStyle(PreviewTextFieldStyle)
+    case pickerStyle(PreviewPickerStyle)
+    case toggleStyle(PreviewToggleStyle)
+    case controlSize(PreviewControlSize)
+    case tint(PreviewColor)
 
     /// Portable value-driven animation. Providers lower only supported
     /// Animation curves and a simple preview-state value reference.

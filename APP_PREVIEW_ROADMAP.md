@@ -33,6 +33,8 @@ App Preview keeps three separate product paths:
 - portable animation/transition modifier IR foundation
 - value-driven animation lowering for default/linear/ease/spring curves
 - portable opacity/scale/slide/move transition lowering
+- portable Button/TextField/Picker/Toggle style foundation
+- portable controlSize and tint lowering
 
 ## Current custom item Text support
 
@@ -125,6 +127,51 @@ when preview state changes.
 
 Source animation expressions themselves are never executed.
 
+## Control-style foundation
+
+"Richer control styles" means Preview no longer forces every control into one
+fixed appearance. Common SwiftUI control styles are preserved in portable
+Preview IR and rendered by the signed native runtime.
+
+First-wave support:
+
+```swift
+.buttonStyle(.automatic)
+.buttonStyle(.plain)
+.buttonStyle(.borderless)
+.buttonStyle(.bordered)
+.buttonStyle(.borderedProminent)
+
+.textFieldStyle(.automatic)
+.textFieldStyle(.plain)
+.textFieldStyle(.roundedBorder)
+
+.pickerStyle(.automatic)
+.pickerStyle(.menu)
+.pickerStyle(.segmented)
+.pickerStyle(.wheel)
+.pickerStyle(.inline)
+
+.toggleStyle(.automatic)
+.toggleStyle(.switch)
+.toggleStyle(.button)
+
+.controlSize(.mini)
+.controlSize(.small)
+.controlSize(.regular)
+.controlSize(.large)
+
+.tint(.blue)
+```
+
+The runtime no longer hard-codes every Button as `borderedProminent`, every
+TextField as `roundedBorder`, or every Picker as `menu`. Unstyled controls now
+use native SwiftUI defaults, while explicitly styled controls keep the source
+appearance.
+
+Next control-style work can add button roles, Label/image button content,
+disabled state, text input options, and more safe style modifiers.
+
 ## Existing paths remain unchanged
 
 - primitive `Text(item)` item presentation
@@ -136,8 +183,8 @@ Source animation expressions themselves are never executed.
 
 ## Next preview layers
 
-1. conditional visibility / insertion-removal for active transitions
-2. richer control styles
+1. richer control-style coverage and labels
+2. conditional visibility / insertion-removal for active transitions
 3. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
