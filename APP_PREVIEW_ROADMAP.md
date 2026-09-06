@@ -26,11 +26,11 @@ App Preview keeps three separate product paths:
 - typed optional custom-model `@State` recognition
 - constrained Identifiable model-constructor action lowering
 - runtime custom Identifiable item presentation bridge
+- direct `Text(item.member)` lowering for item presentations
 
-## Current custom item flow
+## Current custom item path
 
-The top-level Live Preview stack now supports the first complete portable custom
-item presentation path:
+The first direct member form now lowers portably:
 
 ```swift
 struct DetailItem: Identifiable {
@@ -47,57 +47,40 @@ Button("Open") {
     )
 }
 .sheet(item: $selectedItem) { item in
-    Text(item)
+    Text(item.title)
+    Text(item.id)
 }
 ```
 
-Lowering path:
+The presentation member expressions become:
 
 ```text
-DetailItem(id:title:)
-        ↓
-PreviewIdentifiableItem
-        ↓
-PreviewAction.set
-        ↓
-PreviewOptionalIdentifiableItemState
-        ↓
-native item-driven Sheet / Full Screen
+item.title
+    ↓
+PreviewNode.itemMemberText(
+    stateName: "selectedItem",
+    memberName: "title"
+)
+    ↓
+PreviewStateStore optional Identifiable item
+    ↓
+PreviewIdentifiableItem.member(named:)
+    ↓
+native Text
 ```
 
-The source model and constructor are never executed.
+No source property getter is executed.
 
-## Constructor subset
+The same direct-member form is supported for
+`.fullScreenCover(item:)`.
 
-Supported stored member literal types:
-
-- `String`
-- `Bool`
-- `Int`
-- `Double`
-- `Float`
-
-Every declared supported member must be supplied by the constrained constructor.
-Unknown members, duplicate members, missing members, wrong literal types, and
-assigning the wrong model type to a custom optional state produce diagnostics.
-
-Existing primitive Button actions and primitive item presentation continue
-through the established provider path.
-
-## Runtime identity
-
-Custom Identifiable presentation identity now derives from:
-
-```text
-state name + model type + portable item id
-```
-
-Primitive item identity behavior is unchanged.
+Primitive item presentation remains on its existing path. Direct
+`item.member` requires a custom Identifiable optional state.
 
 ## Next preview layers
 
-1. `item.member` access inside presentation content
-2. member interpolation such as `Text("\(item.title)")`
+1. member interpolation such as `Text("\(item.title)")`
+2. validation diagnostics for unknown custom members
 3. richer custom-item demo coverage
 4. animation / transitions
 5. richer control styles
@@ -107,4 +90,4 @@ Primitive item identity behavior is unchanged.
 
 Item presentation remains provider-driven and portable. The generic project,
 workspace, and plugin core never executes arbitrary presentation closures,
-model constructors, or user-supplied SwiftUI runtime code.
+model constructors, property getters, or user-supplied SwiftUI runtime code.

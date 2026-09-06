@@ -79,6 +79,19 @@ private struct PreviewNodeView: View {
                 )
             )
 
+        case .itemMemberText(
+            let stateName,
+            let memberName
+        ):
+            return AnyView(
+                Text(
+                    presentedItemMemberText(
+                        stateName: stateName,
+                        memberName: memberName
+                    )
+                )
+            )
+
         case .textField(let prompt, let reference):
             return AnyView(
                 TextField(
@@ -499,6 +512,22 @@ private struct PreviewNodeView: View {
         default:
             return false
         }
+    }
+
+    private func presentedItemMemberText(
+        stateName: String,
+        memberName: String
+    ) -> String {
+        guard case .identifiableItem(let item) =
+                stateStore.optionalItemValue(
+                    for: stateName
+                ) else {
+            return ""
+        }
+
+        return item.displayText(
+            forMember: memberName
+        ) ?? ""
     }
 
     private func presentedItemID(

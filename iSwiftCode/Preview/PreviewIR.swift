@@ -248,6 +248,16 @@ indirect enum PreviewNode: Equatable, Sendable {
     /// `Text("Count: \(count)")`.
     case interpolatedText(String)
 
+    /// Text resolved from one member of the currently presented portable
+    /// Identifiable item, for example `Text(item.title)` or `Text(item.id)`.
+    ///
+    /// The runtime resolves the member from PreviewStateStore. User model code
+    /// and property accessors are never executed.
+    case itemMemberText(
+        stateName: String,
+        memberName: String
+    )
+
     case textField(
         prompt: String,
         text: PreviewBindingReference
