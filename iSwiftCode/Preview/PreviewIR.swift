@@ -338,6 +338,19 @@ enum PreviewDisabledValue:
     case state(PreviewBindingReference)
 }
 
+struct PreviewBooleanCondition: Equatable, Sendable {
+    let stateName: String
+    let isNegated: Bool
+
+    init(
+        stateName: String,
+        isNegated: Bool = false
+    ) {
+        self.stateName = stateName
+        self.isNegated = isNegated
+    }
+}
+
 enum PreviewModifier: Equatable, Sendable {
     case padding(Double?)
     case frame(PreviewFrame)
@@ -494,6 +507,16 @@ indirect enum PreviewNode: Equatable, Sendable {
         title: String,
         destination: PreviewNode
     )
+
+    /// Portable SwiftUI-style conditional insertion/removal driven only by a
+    /// known Bool preview state. Branch expressions are already lowered to
+    /// PreviewNode values before the runtime receives them.
+    case conditional(
+        condition: PreviewBooleanCondition,
+        whenTrue: [PreviewNode],
+        whenFalse: [PreviewNode]
+    )
+
     case modified(base: PreviewNode, modifiers: [PreviewModifier])
 }
 

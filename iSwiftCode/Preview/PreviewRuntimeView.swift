@@ -43,6 +43,51 @@ struct PreviewRuntimeView: View {
     }
 }
 
+/// Keeps the conditional identity stable across state updates so native
+/// SwiftUI transitions can animate insertion/removal instead of replacing an
+/// already-rendered snapshot.
+private struct PreviewConditionalNodeView: View {
+    let condition: PreviewBooleanCondition
+    let whenTrue: [PreviewNode]
+    let whenFalse: [PreviewNode]
+
+    @ObservedObject var stateStore: PreviewStateStore
+
+    var body: some View {
+        Group {
+            if conditionIsSatisfied {
+                branch(whenTrue)
+            } else {
+                branch(whenFalse)
+            }
+        }
+    }
+
+    private var conditionIsSatisfied: Bool {
+        let value = stateStore.boolValue(
+            for: condition.stateName
+        )
+        return condition.isNegated
+            ? !value
+            : value
+    }
+
+    @ViewBuilder
+    private func branch(
+        _ nodes: [PreviewNode]
+    ) -> some View {
+        ForEach(
+            Array(nodes.enumerated()),
+            id: \.offset
+        ) { item in
+            PreviewNodeView(
+                node: item.element,
+                stateStore: stateStore
+            )
+        }
+    }
+}
+
 private struct PreviewNodeView: View {
     let node: PreviewNode
 
@@ -329,6 +374,20 @@ private struct PreviewNodeView: View {
                 } label: {
                     Text(title)
                 }
+            )
+
+        case .conditional(
+            let condition,
+            let whenTrue,
+            let whenFalse
+        ):
+            return AnyView(
+                PreviewConditionalNodeView(
+                    condition: condition,
+                    whenTrue: whenTrue,
+                    whenFalse: whenFalse,
+                    stateStore: stateStore
+                )
             )
 
         case .modified(

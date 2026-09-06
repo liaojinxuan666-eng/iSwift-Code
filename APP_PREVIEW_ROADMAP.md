@@ -38,6 +38,9 @@ App Preview keeps three separate product paths:
 - portable Label and label-backed Button content
 - portable destructive/cancel Button roles
 - portable labelStyle and disabled modifiers
+- Bool @State conditional insertion/removal
+- negated Bool conditions and simple else branches
+- active transition path through conditional branches
 
 ## Current custom item Text support
 
@@ -124,9 +127,28 @@ Animation values are constrained to known preview `@State` identifiers.
 The runtime maps portable motion metadata to native SwiftUI `Animation` and
 `AnyTransition` values.
 
-Transition metadata is now preserved end-to-end. The next motion step is
-portable conditional insertion/removal so transitions can visibly activate
-when preview state changes.
+Transition metadata is now preserved end-to-end, and Bool `@State` driven
+conditional insertion/removal is active. A transition on a conditional child
+can now participate in native SwiftUI insertion/removal animation when the
+surrounding source uses a supported value-driven `.animation(..., value:)`.
+
+First-wave condition grammar:
+
+```swift
+if showingDetails {
+    Text("Details")
+        .transition(.opacity)
+}
+
+if !isLoading {
+    Text("Ready")
+} else {
+    Text("Loading")
+}
+```
+
+Conditions are restricted to one known Bool preview state, optionally negated.
+The condition expression itself is never executed from user source.
 
 Source animation expressions themselves are never executed.
 
@@ -194,8 +216,8 @@ modifiers after active transition insertion/removal is complete.
 
 ## Next preview layers
 
-1. conditional visibility / insertion-removal for active transitions
-2. text-input behavior and additional safe control modifiers
+1. text-input behavior and additional safe control modifiers
+2. richer conditional expressions / collection-style preview nodes
 3. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
