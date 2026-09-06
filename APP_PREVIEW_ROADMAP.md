@@ -28,6 +28,7 @@ App Preview keeps three separate product paths:
 - runtime custom Identifiable item presentation bridge
 - direct `Text(item.member)` lowering
 - item-member string interpolation in Text
+- source-level validation diagnostics for unknown custom item members
 
 ## Current custom item Text support
 
@@ -46,38 +47,41 @@ Text("ID: \(item.id)")
 Text("\(item.id): \(item.title)")
 ```
 
-The provider replaces source interpolation with portable markers before the
-existing parser stack runs. The resulting Preview IR stores only:
+Unknown members now fail during Preview generation:
 
-```text
-template
-+ stateName
-+ memberName
+```swift
+Text(item.notExist)
+Text("Value: \(item.notExist)")
 ```
 
-At runtime, ordinary preview-state interpolation is resolved first, then each
-portable item-member marker is replaced from `PreviewIdentifiableItem`.
+Example diagnostic:
 
-No source property getter or interpolation expression is executed.
+```text
+Identifiable preview model 'DetailItem' has no stored member 'notExist'.
+Available members: id, title.
+```
 
-The same interpolation path works in both `.sheet(item:)` and
-`.fullScreenCover(item:)`.
+Validation happens before runtime member lookup, so invalid source no longer
+silently renders an empty string.
+
+The validator is source-only and portable. It never executes the source model,
+property getters, presentation closures, or interpolation expressions.
 
 ## Existing paths remain unchanged
 
 - primitive `Text(item)` item presentation
 - direct custom `Text(item.member)`
+- custom item-member interpolation
 - ordinary `Text("\(state)")` preview interpolation
 - primitive Button actions
 - custom Identifiable constructor actions
 
 ## Next preview layers
 
-1. validation diagnostics for unknown custom members
-2. richer custom-item built-in demo coverage
-3. animation / transitions
-4. richer control styles
-5. iPad side-by-side editor/preview layout
+1. richer custom-item built-in demo coverage
+2. animation / transitions
+3. richer control styles
+4. iPad side-by-side editor/preview layout
 
 ## Architecture constraint
 
